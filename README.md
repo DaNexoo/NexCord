@@ -1,30 +1,39 @@
-# NexCord
-powerfull discord tool!
 
-## ⚠️ Disclaimer & Warning ⚠️
-- This tool is developed strictly for educational and research purposes. It demonstrates the capabilities and potential security considerations of the Discord API.
-- By using this software, you agree that:
-- You will only use it on servers where you have explicit owner-level permission.
+</p>
+<p align="center">
+Nexcord Plus:
+<a href="https://discord.gg/3HvmaUxRv9">HERE</a>
+</p>
+ 
+---
+![image](https://cdn.discordapp.com/attachments/1426609573443403887/1434175993022648524/image.png?ex=69075ffa&is=69060e7a&hm=62ee9b5a12e0c09ee52d6e112a9d3d66c496fc9c4a087fcff733ce893d768062&)
 
-## 🚀 Features
-NexCord provides a comprehensive CLI-based menu for a wide range of server management tasks:
-- Mass Messaging
-- Webhook Message Sender
-- DM All Members (Bot-Based)
-Server Moderation
-- Kick User / Kick All Members
-- Ban User / Ban All Members
-- Timeout User / Timeout All Members
-Role & Permission Management
-- Grant Admin (Single User)
-- Grant Admin (All Members)
-- Assign Any Role (Single User)
-- Assign Any Role (All Members)
-- Nickname Changer
-Server Activity
-- Mass Reaction Spammer (Multi-Emoji)
-- Logging & Analysis
-- Real-time Message Logger (Sent/Deleted)
-- Full Server Logger (Tracks Joins/Leaves, Bans, Channel Updates, etc.)
-- Server Setup & Nuking (Use with extreme caution!)
-and more...
+### Settings:
+- [x] - **Windows 10 / 11**
+- [x] - **Download Python:** [v3.9.11](https://www.python.org/ftp/python/3.9.11/python-3.9.11-amd64.exe)
+- [x] - **100% Safe!**
+- [x] - **Fequently Updating**
+- [x] - **Might Have Some Bugs**
+- [x] - **Python Provided**
+
+## Installation
+
+#### Source Code Version (More complicated but less buggy)
+```It is important to disable your antivirus for it to work. We don’t have a Microsoft license that costs upwards of €300 per year, so your antivirus might flag it as an unsafe file.```
+```sh-session
+Download Nexcord.zip
+Extract File
+Tap "Install.bat" in Nexcord folder
+Launch nexcord.py and you should be good ;)
+
+NOTE: Make sure you have Python 3.9+ and Added to Path.
+```
+
+#### Compiled Version (Easier but more buggy)
+```sh-session
+Download: https://github.com/DaNexoo/NexCord/releases
+Extract File
+Download the latest release (Nexcord.zip) and Extract The Executable
+Launch Program and Enjoy!
+```
+
