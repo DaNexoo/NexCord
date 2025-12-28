@@ -9,6 +9,7 @@ Nexcord Plus:
 > **Note:** Anything you do with this tool is entirely YOUR responsibility.
 > The tool owner is NOT responsible for any damage, misuse, bans, or consequences.
 > By using this tool, you accept full responsibility.
+> 
 
 ![image](https://files.catbox.moe/eymu9x.png)
 > **Note:** Python is **not required** if you use the compiled version.  
