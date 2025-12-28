@@ -21,10 +21,10 @@ Nexcord Plus:
 > The `Nexcord.zip` already includes a ready-to-use `.exe`, so you can just extract and run it without installing Python.
 
 ### Settings:
-- [x] - **Windows 10 / 11**
-- [x] - **Download Python:** [v3.9.11](https://www.python.org/ftp/python/3.9.11/python-3.9.11-amd64.exe)
-- [x] - **Fequently Updating**
-- [x] - **Python Provided**
+> - **Windows 10 / 11**
+> - **Download Python:** [v3.9.11](https://www.python.org/ftp/python/3.9.11/python-3.9.11-amd64.exe)
+> - **Fequently Updating**
+> - **Python Provided**
 
 ## Installation
 > If you get a warning that the app cannot be opened, click **"Run Anyways"**.  
