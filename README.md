@@ -49,4 +49,5 @@ Extract File
 Download the latest release (Nexcord.zip) and Extract The Executable
 Launch Program and Enjoy!
 ```
-
+## Nexcord Plus
+> 
