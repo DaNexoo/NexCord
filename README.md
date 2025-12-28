@@ -2,7 +2,7 @@
 </p>
 <p align="center">
 More Versions:
-<a href="https://github.com/DaNexoo/NexcordPlus"Nexcord Plus</a>
+<a href="https://github.com/DaNexoo/NexcordPlus">Nexcord Plus</a>,<a href="https://github.com/DaNexoo/NexcordPlus">Nexcordd Plus</a>
 </p>
  
 ---
