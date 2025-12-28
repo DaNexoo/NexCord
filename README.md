@@ -6,6 +6,13 @@ Nexcord Plus:
 </p>
  
 ---
+<p style="color:red; font-weight:bold;">
+⚠️ DISCLAIMER: Anything you do with this tool is entirely YOUR responsibility.
+The tool owner is NOT responsible for any damage, misuse, bans, or consequences.
+By using this tool, you accept full responsibility.
+</p>
+
+
 ![image](https://files.catbox.moe/eymu9x.png)
 > **Note:** Python is **not required** if you use the compiled version.  
 > The `Nexcord.zip` already includes a ready-to-use `.exe`, so you can just extract and run it without installing Python.
