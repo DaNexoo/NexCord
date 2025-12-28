@@ -1,7 +1,7 @@
 
 </p>
 <p align="center">
-More Versions:
+> More Versions:
 <a href="https://github.com/DaNexoo/NexcordPlus">Nexcord Plus</a>
 </p>
  
