@@ -2,7 +2,7 @@
 </p>
 <p align="center">
 Nexcord Plus:
-<a href="https://discord.gg/3HvmaUxRv9">HERE</a>
+<a href="https://github.com/DaNexoo/NexcordPlus">Here</a>
 </p>
  
 ---
@@ -11,10 +11,10 @@ Nexcord Plus:
 ### Settings:
 - [x] - **Windows 10 / 11**
 - [x] - **Download Python:** [v3.9.11](https://www.python.org/ftp/python/3.9.11/python-3.9.11-amd64.exe)
-- [x] - **100% Safe!**
 - [x] - **Fequently Updating**
-- [x] - **Might Have Some Bugs**
 - [x] - **Python Provided**
+> **Note:** Python is **not required** if you use the compiled version.  
+> The `Nexcord.zip` already includes a ready-to-use `.exe`, so you can just extract and run it without installing Python.
 
 ## Installation
 
