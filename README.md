@@ -9,7 +9,12 @@ Nexcord Plus:
 > **Note:** Anything you do with this tool is entirely YOUR responsibility.
 > The tool owner is NOT responsible for any damage, misuse, bans, or consequences.
 > By using this tool, you accept full responsibility.
-> 
+
+> This tool is relatively old and was only uploaded recently.
+> It was originally developed when my Python knowledge was still limited, so the basic versions may contain bugs or inconsistent behavior.
+> Some parts of the text (especially in older versions) were written with the help of automated tools, as my English skills were limited at the time.
+> Please also note that **all versions below 2.1.0 do NOT include an auto-updater** and must be updated manually.
+
 
 ![image](https://files.catbox.moe/eymu9x.png)
 > **Note:** Python is **not required** if you use the compiled version.  
