@@ -6,7 +6,7 @@ Nexcord Plus:
 </p>
  
 ---
-![image](https://cdn.discordapp.com/attachments/1426609573443403887/1434175993022648524/image.png?ex=69075ffa&is=69060e7a&hm=62ee9b5a12e0c09ee52d6e112a9d3d66c496fc9c4a087fcff733ce893d768062&)
+![image](https://www.dropbox.com/scl/fi/ul8jkvdrywajgzobof0xy/image.png?rlkey=9o3s75iynxsvocyopqpnc5kbz&st=imgs3den&dl=1)
 > **Note:** Python is **not required** if you use the compiled version.  
 > The `Nexcord.zip` already includes a ready-to-use `.exe`, so you can just extract and run it without installing Python.
 
