@@ -23,7 +23,6 @@ Nexcord Plus:
 > This warning is entirely harmless and only appears because the app is not signed.  
 > Code signing would cost us [**upwards of 300€/year**](https://shop.certum.eu/data-security/code-signing-certificates/certum-ev-code-sigining.html).
 #### Source Code Version (More complicated but less buggy)
-```It is important to disable your antivirus for it to work. We don’t have a Microsoft license that costs upwards of €300 per year, so your antivirus might flag it as an unsafe file.```
 ```sh-session
 Download Nexcord.zip
 Extract File
