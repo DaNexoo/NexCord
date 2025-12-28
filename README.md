@@ -7,14 +7,14 @@ Nexcord Plus:
  
 ---
 ![image](https://cdn.discordapp.com/attachments/1426609573443403887/1434175993022648524/image.png?ex=69075ffa&is=69060e7a&hm=62ee9b5a12e0c09ee52d6e112a9d3d66c496fc9c4a087fcff733ce893d768062&)
+> **Note:** Python is **not required** if you use the compiled version.  
+> The `Nexcord.zip` already includes a ready-to-use `.exe`, so you can just extract and run it without installing Python.
 
 ### Settings:
 - [x] - **Windows 10 / 11**
 - [x] - **Download Python:** [v3.9.11](https://www.python.org/ftp/python/3.9.11/python-3.9.11-amd64.exe)
 - [x] - **Fequently Updating**
 - [x] - **Python Provided**
-> **Note:** Python is **not required** if you use the compiled version.  
-> The `Nexcord.zip` already includes a ready-to-use `.exe`, so you can just extract and run it without installing Python.
 
 ## Installation
 
