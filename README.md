@@ -1,8 +1,8 @@
 
 </p>
 <p align="center">
-Nexcord Plus:
-> <a href="https://github.com/DaNexoo/NexcordPlus">github</a>
+More Versions:
+> <a href="https://github.com/DaNexoo/NexcordPlus">Nexcord Plus</a>
 </p>
  
 ---
