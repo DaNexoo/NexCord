@@ -6,13 +6,9 @@ Nexcord Plus:
 </p>
  
 ---
-<p style="color:#ff0000; background-color:#1a1a1a; padding:10px; border-radius:6px; font-weight:bold;">
-⚠️ USE AT YOUR OWN RISK  
-Everything you do with this tool is on YOU.  
-The developer is NOT responsible for any actions, damage, or consequences caused by this software.
-</p>
-****
-
+> **Note:** ⚠️ Anything you do with this tool is entirely YOUR responsibility.
+> The tool owner is NOT responsible for any damage, misuse, bans, or consequences.
+> By using this tool, you accept full responsibility.
 
 ![image](https://files.catbox.moe/eymu9x.png)
 > **Note:** Python is **not required** if you use the compiled version.  
