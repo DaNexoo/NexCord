@@ -2,7 +2,7 @@
 </p>
 <p align="center">
 Nexcord Plus:
-> <a href="https://github.com/DaNexoo/NexcordPlus">Here</a>
+> <a href="https://github.com/DaNexoo/NexcordPlus">github</a>
 </p>
  
 ---
