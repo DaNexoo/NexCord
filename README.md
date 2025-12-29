@@ -1,4 +1,4 @@
-## Nexcord Basic
+##                                    Nexcord Basic
 
 > **Note:** Anything you do with this tool is entirely YOUR responsibility.
 > The tool owner is NOT responsible for any damage, misuse, bans, or consequences.
