@@ -54,3 +54,9 @@ Launch Program and Enjoy!
 > improvement. Premium members also receive a special Discord role, showing their status
 > and standing out as part of the core community.
 > More detailed information on the Nexcord Plus [**GitHub WIKI**](https://shop.certum.eu/data-security/code-signing-certificates/certum-ev-code-sigining.html).
+
+</p>
+<p align="center">
+</p>
+ 
+---
