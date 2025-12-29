@@ -55,4 +55,4 @@ Launch Program and Enjoy!
 > Our developer team actively delivers updates and bug fixes to ensure continuous
 > improvement. Premium members also receive a special Discord role, showing their status
 > and standing out as part of the core community.
-> More detailed information on the Nexcord Plus [**GitHub page**](https://shop.certum.eu/data-security/code-signing-certificates/certum-ev-code-sigining.html).
+> More detailed information on the Nexcord Plus [**GitHub WIKI**](https://shop.certum.eu/data-security/code-signing-certificates/certum-ev-code-sigining.html).
