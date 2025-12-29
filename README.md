@@ -50,4 +50,8 @@ Download the latest release (Nexcord.zip) and Extract The Executable
 Launch Program and Enjoy!
 ```
 ## Nexcord Plus
-> 
+> Nexcord Plus is the premium version of Nexcord, available for €3.99 per month.
+> It unlocks advanced features, extended customization options, and exclusive functionality.
+> Our developer team actively delivers updates and bug fixes to ensure continuous
+> improvement. Premium members also receive a special Discord role, showing their status
+> and standing out as part of the core community.
