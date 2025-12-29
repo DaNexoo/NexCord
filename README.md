@@ -1,7 +1,6 @@
 
 </p>
 <p align="center">
-More Versions:
 </p>
  
 ---
