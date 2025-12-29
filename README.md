@@ -1,9 +1,5 @@
+## Nexcord Basic
 
-</p>
-<p align="center">
-</p>
- 
----
 > **Note:** Anything you do with this tool is entirely YOUR responsibility.
 > The tool owner is NOT responsible for any damage, misuse, bans, or consequences.
 > By using this tool, you accept full responsibility.
